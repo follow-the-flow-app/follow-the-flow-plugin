@@ -132,6 +132,7 @@ export async function validateRepository(root) {
     // I spec I-6 (10-18 inline addendum): Claude's MCP config is inline, not a path.
     mcpServers: [isObject, "an inline map"],
   });
+  requireFields(errors, "mcp.json", json["mcp.json"], { mcpServers: [isObject, "a map of servers"] });
   requireFields(errors, ".claude-plugin/marketplace.json", market, { owner: NAMED });
   requireFields(errors, "server.json", server, { description: TEXT });
   if (name !== PLUGIN_NAME) errors.push(`plugin.json name ${name} must be ${PLUGIN_NAME}`);
@@ -146,7 +147,6 @@ export async function validateRepository(root) {
     errors.push(
       ".claude-plugin/plugin.json must not set version: the marketplace entry carries it",
     );
-  const claudeServers = isObject(claude.mcpServers) ? claude.mcpServers : undefined;
 
   const plugins = market.plugins ?? [];
   if (!Array.isArray(plugins))
@@ -182,10 +182,12 @@ export async function validateRepository(root) {
   if (!isSemver(server.version))
     errors.push(`server.json version ${JSON.stringify(server.version)} is not x.y.z`);
 
-  // Each client's MCP manifest and its transport name. An mcpServers that is not an inline map is
-  // already reported; checking its servers would only repeat that under other names.
-  const manifests = [["mcp.json", json["mcp.json"].mcpServers, "streamable-http"]];
-  if (claudeServers) manifests.push([".claude-plugin/plugin.json", claudeServers, "http"]);
+  // Each client's MCP manifest and its transport name. A manifest whose mcpServers is not a map is
+  // already reported above; checking its servers would only repeat that under other names.
+  const manifests = [
+    ["mcp.json", json["mcp.json"].mcpServers, "streamable-http"],
+    [".claude-plugin/plugin.json", claude.mcpServers, "http"],
+  ].filter(([, servers]) => isObject(servers));
   const urls = {};
   for (const [file, servers, transport] of manifests) {
     // I spec I-6: the plugin holds one URL, so each manifest names exactly one server.

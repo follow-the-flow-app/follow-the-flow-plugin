@@ -322,6 +322,16 @@ for (const value of ["./.mcp.json", [{ type: "http", url: "https://mcp-dev.follo
   });
 }
 
+for (const [change, error] of [
+  [(j) => (j.mcpServers = "./x.json"), "mcp.json mcpServers must be a map of servers"],
+  [(j) => delete j.mcpServers, "mcp.json needs mcpServers"],
+]) {
+  test(`mcp.json: ${change.toString()} is reported once`, async () => {
+    const errors = await errorsOf((dir) => rewrite(dir, "mcp.json", change));
+    assert.deepEqual(errors, [error]);
+  });
+}
+
 test("a root .mcp.json does not hide the other errors", async () => {
   const errors = await errorsOf(async (dir) => {
     await writeFile(path.join(dir, ".mcp.json"), "{}");
