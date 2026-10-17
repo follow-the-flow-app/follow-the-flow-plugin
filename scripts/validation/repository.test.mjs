@@ -176,6 +176,39 @@ const BROKEN = [
     (j) => j.plugins.push({ name: "other", source: "./other", version: "1.0.0" }),
     "must list exactly one plugin",
   ],
+  // The only entry or server renamed: the count guards still see one.
+  [
+    ".claude-plugin/marketplace.json",
+    (j) => (j.plugins[0].name = "other"),
+    "lists no plugin named follow-the-flow",
+  ],
+  [
+    "mcp.json",
+    (j) => (j.mcpServers = { other: j.mcpServers["follow-the-flow"] }),
+    "mcp.json must list only follow-the-flow",
+  ],
+  [
+    ".mcp.json",
+    (j) => (j.mcpServers = { other: j.mcpServers["follow-the-flow"] }),
+    ".mcp.json must list only follow-the-flow",
+  ],
+  // I spec I-6's field table. Claude Code rejects a marketplace without owner.name.
+  ["plugin.json", (j) => delete j.author, "plugin.json needs author"],
+  ["plugin.json", (j) => (j.author = { url: "https://follow-the-flow.app" }), "plugin.json needs author"],
+  ["plugin.json", (j) => delete j.homepage, "plugin.json needs homepage"],
+  ["plugin.json", (j) => delete j.repository, "plugin.json needs repository"],
+  ["plugin.json", (j) => (j.keywords = []), "plugin.json needs keywords"],
+  ["plugin.json", (j) => (j.keywords = [""]), "plugin.json needs keywords"],
+  [".claude-plugin/plugin.json", (j) => delete j.displayName, ".claude-plugin/plugin.json needs displayName"],
+  [".claude-plugin/plugin.json", (j) => delete j.description, ".claude-plugin/plugin.json needs description"],
+  [".claude-plugin/plugin.json", (j) => delete j.author, ".claude-plugin/plugin.json needs author"],
+  [".claude-plugin/marketplace.json", (j) => delete j.owner, "marketplace.json needs owner"],
+  [".claude-plugin/marketplace.json", (j) => (j.owner = {}), "marketplace.json needs owner"],
+  [".claude-plugin/marketplace.json", (j) => delete j.plugins[0].displayName, "entry needs displayName"],
+  [".claude-plugin/marketplace.json", (j) => delete j.plugins[0].description, "entry needs description"],
+  [".claude-plugin/marketplace.json", (j) => delete j.plugins[0].category, 'category must be "productivity"'],
+  [".claude-plugin/marketplace.json", (j) => (j.plugins[0].category = "other"), 'category must be "productivity"'],
+  ["server.json", (j) => delete j.description, "server.json needs description"],
 ];
 
 /** Endpoints that are not https://<host>/v<n>/mcp, though a pattern on the raw string could pass them. */

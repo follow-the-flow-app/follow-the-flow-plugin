@@ -98,6 +98,30 @@ test("a failed request names its underlying cause", async () => {
   );
 });
 
+/** A promise that rejects with the signal's reason once it aborts, and never settles otherwise. */
+const untilAborted = (signal) =>
+  new Promise((_, reject) => signal.addEventListener("abort", () => reject(signal.reason)));
+
+test("a server that never answers is an error once the deadline passes", async () => {
+  const errors = await checkEndpoint(ENDPOINT, (_url, { signal }) => untilAborted(signal), 20);
+  assert.ok(
+    errors.some((e) => e.startsWith("cannot fetch") && e.includes("timeout")),
+    errors.join("\n"),
+  );
+});
+
+test("a body that never finishes is an error once the same deadline passes", async () => {
+  const errors = await checkEndpoint(
+    ENDPOINT,
+    async (_url, { signal }) => ({ ok: true, status: 200, text: () => untilAborted(signal) }),
+    20,
+  );
+  assert.ok(
+    errors.some((e) => e.startsWith("cannot read") && e.includes("timeout")),
+    errors.join("\n"),
+  );
+});
+
 test("an endpoint that is not a URL is an error, not a crash", async () => {
   const errors = await checkEndpoint("https://host:99999/v1/mcp", async () => {
     throw new Error("must not fetch");

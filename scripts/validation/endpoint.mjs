@@ -3,6 +3,9 @@ import path from "node:path";
 
 import { validateRepository } from "./repository.mjs";
 
+/** How long the request and its body may take together: a bound on a stalled server, not a service-level promise. */
+const TIMEOUT_MS = 10_000;
+
 /** RFC 9728: the protected resource metadata of `endpoint`, with the well-known path before the endpoint's path. */
 export function metadataUrl(endpoint) {
   const url = new URL(endpoint);
@@ -14,16 +17,18 @@ export function metadataUrl(endpoint) {
  * metadata, which is the server's MCP_RESOURCE_URL (I spec I-2). Needs no token. This shows
  * the manifests agree with the server they name; it cannot tell whether that is the right environment.
  */
-export async function checkEndpoint(endpoint, fetchImpl = fetch) {
+export async function checkEndpoint(endpoint, fetchImpl = fetch, timeoutMs = TIMEOUT_MS) {
   let url;
   try {
     url = metadataUrl(endpoint);
   } catch (error) {
     return [`invalid endpoint ${endpoint}: ${error.message}`];
   }
+  // One signal for both: fetch aborts the body it is still reading when the signal fires.
+  const signal = AbortSignal.timeout(timeoutMs);
   let response;
   try {
-    response = await fetchImpl(url);
+    response = await fetchImpl(url, { signal });
   } catch (error) {
     // Node's fetch says only "fetch failed"; the reason (DNS, an expired certificate) is in cause.
     const cause = error.cause ? ` (${error.cause.code ?? error.cause.message})` : "";

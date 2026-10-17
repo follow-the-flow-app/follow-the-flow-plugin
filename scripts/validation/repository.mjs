@@ -24,6 +24,16 @@ const PLUGIN_NAME = "follow-the-flow";
 
 const isObject = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 const isSemver = (value) => typeof value === "string" && SEMVER.test(value);
+const isText = (value) => typeof value === "string" && value !== "";
+const hasName = (value) => isObject(value) && isText(value.name);
+const isKeywords = (value) => Array.isArray(value) && value.length > 0 && value.every(isText);
+
+/** I spec I-6's field table: each field the manifest must carry, and the shape it must have. */
+function requireFields(errors, label, manifest, fields) {
+  for (const [field, ok] of Object.entries(fields)) {
+    if (!ok(manifest[field])) errors.push(`${label} needs ${field}`);
+  }
+}
 
 /** https://<host>/v<n>/mcp, parsed rather than pattern-matched, written the way URL writes it back. */
 function isEndpoint(value) {
@@ -81,10 +91,23 @@ export async function validateRepository(root) {
   const server = json["server.json"];
   const name = plugin.name;
 
-  for (const field of ["name", "version", "description", "license"]) {
-    if (typeof plugin[field] !== "string" || plugin[field] === "")
-      errors.push(`plugin.json needs ${field}`);
-  }
+  requireFields(errors, "plugin.json", plugin, {
+    name: isText,
+    version: isText,
+    description: isText,
+    author: hasName,
+    homepage: isText,
+    repository: isText,
+    license: isText,
+    keywords: isKeywords,
+  });
+  requireFields(errors, ".claude-plugin/plugin.json", claude, {
+    displayName: isText,
+    description: isText,
+    author: hasName,
+  });
+  requireFields(errors, ".claude-plugin/marketplace.json", market, { owner: hasName });
+  requireFields(errors, "server.json", server, { description: isText });
   if (name !== PLUGIN_NAME) errors.push(`plugin.json name ${name} must be ${PLUGIN_NAME}`);
   if (market.name !== PLUGIN_NAME)
     errors.push(`.claude-plugin/marketplace.json name ${market.name} must be ${PLUGIN_NAME}`);
@@ -119,6 +142,12 @@ export async function validateRepository(root) {
     }
     if (entry.source !== "./")
       errors.push('.claude-plugin/marketplace.json entry source must be "./"');
+    if (entry.category !== "productivity")
+      errors.push('.claude-plugin/marketplace.json entry category must be "productivity"');
+    requireFields(errors, ".claude-plugin/marketplace.json entry", entry, {
+      displayName: isText,
+      description: isText,
+    });
   }
   if (!market.owner?.email)
     warnings.push(".claude-plugin/marketplace.json owner has no email yet (I spec §9.2)");
