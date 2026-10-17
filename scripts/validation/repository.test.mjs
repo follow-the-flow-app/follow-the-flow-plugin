@@ -167,7 +167,61 @@ const BROKEN = [
   ],
   ["server.json", (j) => (j.version = ["1.0.0"]), "not x.y.z"],
   [".claude-plugin/marketplace.json", (j) => (j.plugins = {}), "plugins must be an array"],
+  ["plugin.json", (j) => (j.version = "1.0.0-beta"), "not x.y.z"],
+  ["plugin.json", (j) => (j.version = "v1.0.0"), "not x.y.z"],
+  ["plugin.json", (j) => (j.description = ""), "plugin.json needs description"],
+  // I spec I-6: the marketplace has one plugin entry.
+  [
+    ".claude-plugin/marketplace.json",
+    (j) => j.plugins.push({ name: "other", source: "./other", version: "1.0.0" }),
+    "must list exactly one plugin",
+  ],
 ];
+
+/** Endpoints that are not https://<host>/v<n>/mcp, though a pattern on the raw string could pass them. */
+const BAD_ENDPOINTS = [
+  "http://mcp-dev.follow-the-flow.app/v1/mcp",
+  "https://mcp-dev.follow-the-flow.app/mcp",
+  "https://mcp-dev.follow-the-flow.app/api/v1/mcp",
+  "https://mcp-dev.follow-the-flow.app/v1/mcp?x=1",
+  "https://mcp-dev.follow-the-flow.app?/v1/mcp",
+  "https://mcp-dev.follow-the-flow.app#/v1/mcp",
+  "https://mcp-dev.follow-the-flow.app\\evil/v1/mcp",
+  "https://user:pw@mcp-dev.follow-the-flow.app/v1/mcp",
+  "https://user@mcp-dev.follow-the-flow.app/v1/mcp",
+  "https://:pw@mcp-dev.follow-the-flow.app/v1/mcp",
+  "https://mcp-dev.follow-the-flow.app/v1/mcp#x",
+  "https://mcp-dev.follow-the-flow.app:99999/v1/mcp",
+  "https://MCP-DEV.follow-the-flow.app/v1/mcp",
+];
+
+for (const url of BAD_ENDPOINTS) {
+  test(`the endpoint ${url} in all three manifests is an error`, async () => {
+    const errors = await errorsOf(async (dir) => {
+      for (const file of ["mcp.json", ".mcp.json"]) {
+        await rewrite(dir, file, (j) => {
+          j.mcpServers["follow-the-flow"].url = url;
+        });
+      }
+      await rewrite(dir, "server.json", (j) => {
+        j.remotes[0].url = url;
+      });
+    });
+    assert.ok(
+      errors.some((e) => e.includes("https://<host>/v<n>/mcp")),
+      errors.join("\n"),
+    );
+  });
+}
+
+test("the missing owner email is a warning, not an error (I spec §9.2)", async () => {
+  const { errors, warnings } = await validateRepository(repoRoot);
+  assert.deepEqual(errors, []);
+  assert.ok(
+    warnings.some((w) => w.includes("owner has no email")),
+    warnings.join("\n"),
+  );
+});
 
 for (const [file, change, word] of BROKEN) {
   test(`${file}: ${change.toString()} is an error naming "${word}"`, async () => {

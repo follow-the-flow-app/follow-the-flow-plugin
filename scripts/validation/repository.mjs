@@ -16,7 +16,7 @@ const REQUIRED = [
   "CODEOWNERS",
 ];
 const SEMVER = /^\d+\.\d+\.\d+$/;
-const ENDPOINT = /^https:\/\/[^/]+\/v\d+\/mcp$/;
+const ENDPOINT_PATH = /^\/v\d+\/mcp$/;
 /** I spec I-6: the MCP registry identity. */
 const REGISTRY_NAME = "app.follow-the-flow/follow-the-flow-mcp-server";
 /** I spec I-6: the plugin and the marketplace are both "follow-the-flow"; the README installs follow-the-flow@follow-the-flow. */
@@ -24,6 +24,25 @@ const PLUGIN_NAME = "follow-the-flow";
 
 const isObject = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 const isSemver = (value) => typeof value === "string" && SEMVER.test(value);
+
+/** https://<host>/v<n>/mcp, parsed rather than pattern-matched, written the way URL writes it back. */
+function isEndpoint(value) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  return (
+    url.protocol === "https:" &&
+    url.username === "" &&
+    url.password === "" &&
+    url.search === "" &&
+    url.hash === "" &&
+    ENDPOINT_PATH.test(url.pathname) &&
+    url.href === value
+  );
+}
 
 /** The checks of I spec I-6: every client's file, one plugin version, one MCP endpoint. */
 export async function validateRepository(root) {
@@ -69,7 +88,7 @@ export async function validateRepository(root) {
   if (market.name !== PLUGIN_NAME)
     errors.push(`.claude-plugin/marketplace.json name ${market.name} must be ${PLUGIN_NAME}`);
   if (!isSemver(plugin.version))
-    errors.push(`plugin.json version ${plugin.version} is not x.y.z`);
+    errors.push(`plugin.json version ${JSON.stringify(plugin.version)} is not x.y.z`);
   if (plugin.license !== "Apache-2.0") errors.push("plugin.json license must be Apache-2.0");
 
   if (claude.name !== name) errors.push(".claude-plugin/plugin.json name differs from plugin.json");
@@ -83,6 +102,9 @@ export async function validateRepository(root) {
   const plugins = market.plugins ?? [];
   if (!Array.isArray(plugins))
     errors.push(".claude-plugin/marketplace.json plugins must be an array");
+  // I spec I-6: one plugin entry.
+  else if (plugins.length > 1)
+    errors.push(`.claude-plugin/marketplace.json must list exactly one plugin, found ${plugins.length}`);
   const entries = Array.isArray(plugins) ? plugins.filter((p) => p?.name === name) : [];
   if (entries.length === 0) errors.push(`.claude-plugin/marketplace.json lists no plugin named ${name}`);
   else if (entries.length > 1)
@@ -91,7 +113,7 @@ export async function validateRepository(root) {
     const [entry] = entries;
     if (entry.version !== plugin.version) {
       errors.push(
-        `plugin version differs: plugin.json ${plugin.version}, marketplace entry ${entry.version}`,
+        `plugin version differs: plugin.json ${JSON.stringify(plugin.version)}, marketplace entry ${JSON.stringify(entry.version)}`,
       );
     }
     if (entry.source !== "./")
@@ -131,7 +153,7 @@ export async function validateRepository(root) {
   if (new Set(Object.values(urls)).size !== 1)
     errors.push(`MCP endpoint differs: ${JSON.stringify(urls)}`);
   for (const [file, url] of Object.entries(urls)) {
-    if (!ENDPOINT.test(url ?? ""))
+    if (!isEndpoint(url))
       errors.push(`${file} MCP endpoint ${url} must be https://<host>/v<n>/mcp`);
   }
   return { errors, warnings };

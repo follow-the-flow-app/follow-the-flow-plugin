@@ -37,7 +37,9 @@ All tools except `startWorkflowRun` only read.
 | Claude Code plugin and marketplace                     | `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `.mcp.json` |
 | MCP registry                                           | `server.json`                                                                |
 
-`npm test` and `npm run validate` check every manifest. `npm run check:endpoint` checks that the manifests name the live server's MCP endpoint, read from its public RFC 9728 metadata (no token needed). CI runs all three, and runs them daily as well, because the server can change without this repository changing.
+`npm test` and `npm run validate` check every manifest. `npm run check:endpoint` runs `validate`, then checks that the endpoint the manifests agree on is the resource the live server names in its public RFC 9728 metadata (no token needed). It shows the manifests agree with the server they point at, not that they point at the right environment. CI runs all three on every push and pull request, and daily, because the server can change without this repository changing. GitHub turns the daily run off after 60 days without activity in this repository; turn it back on under **Actions** → **validate**.
+
+Clients install the default branch, `main`. Changes land on `dev` first; merging `dev` into `main` publishes them.
 
 ## License
 
