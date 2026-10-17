@@ -1,8 +1,8 @@
-# Follow The Flow MCP Server
+# Follow The Flow plugin
 
-Connect AI agents to [Follow The Flow](https://follow-the-flow.app). Once connected, an agent can see who you are, which workflow products you can use, and start and follow their runs. Every call is authenticated with OAuth 2.1 and authorized by the server with your existing permissions; the plugin keeps no permissions of its own.
+Work with [Follow The Flow](https://follow-the-flow.app) from your AI agent. Everything the agent does is authenticated with OAuth 2.1 and authorized by Follow The Flow with your existing permissions; the plugin keeps no permissions of its own.
 
-This repository is the plugin and its marketplace. The server itself is not here.
+This repository is the plugin and its marketplace, part of Follow The Flow's Agent Integration work. Today the plugin connects your agent to the Follow The Flow MCP server, whose tools are listed below; the server itself is not here.
 
 > The endpoint is the development environment, `https://mcp-dev.follow-the-flow.app/v1/mcp`, until production opens. You need an invitation to an organization to sign in. The tools answer mock data for now (`"mock": true`).
 
@@ -10,9 +10,9 @@ This repository is the plugin and its marketplace. The server itself is not here
 
 | Client                           | How                                                                                                                                                                                                          |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Claude Code                      | `claude plugin marketplace add follow-the-flow-app/follow-the-flow-mcp-server`, then `/plugin install follow-the-flow@follow-the-flow`. Turn on auto-update for this marketplace in `/plugin` → Marketplaces |
-| Claude Desktop                   | Settings → Plugins → add the marketplace `follow-the-flow-app/follow-the-flow-mcp-server`, install **Follow The Flow MCP**, then connect it on the plugin's Connectors tab                                   |
-| Codex CLI                        | `codex plugin marketplace add https://github.com/follow-the-flow-app/follow-the-flow-mcp-server`, then install **follow-the-flow**                                                                           |
+| Claude Code                      | `claude plugin marketplace add follow-the-flow-app/follow-the-flow-plugin`, then `/plugin install follow-the-flow@follow-the-flow`. Turn on auto-update for this marketplace in `/plugin` → Marketplaces     |
+| Claude Desktop                   | Settings → Plugins → add the marketplace `follow-the-flow-app/follow-the-flow-plugin`, install **Follow The Flow**, then connect it on the plugin's Connectors tab                                           |
+| Codex CLI                        | `codex plugin marketplace add https://github.com/follow-the-flow-app/follow-the-flow-plugin`, then install **follow-the-flow**                                                                               |
 | Codex in the ChatGPT desktop app | **Plugins** → add the marketplace above → install **follow-the-flow**                                                                                                                                        |
 | ChatGPT (Chat, Work)             | chatgpt.com/plugins → **Add custom MCP server** → `https://mcp-dev.follow-the-flow.app/v1/mcp`                                                                                                               |
 | Any other MCP client             | Use the server URL `https://mcp-dev.follow-the-flow.app/v1/mcp`                                                                                                                                              |

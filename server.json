@@ -4,9 +4,9 @@
   "title": "Follow The Flow MCP Server",
   "description": "Follow The Flow's remote MCP server: who you are, which workflow products you can use, and their runs.",
   "version": "1.0.0",
-  "websiteUrl": "https://github.com/follow-the-flow-app/follow-the-flow-mcp-server#readme",
+  "websiteUrl": "https://github.com/follow-the-flow-app/follow-the-flow-plugin#readme",
   "repository": {
-    "url": "https://github.com/follow-the-flow-app/follow-the-flow-mcp-server",
+    "url": "https://github.com/follow-the-flow-app/follow-the-flow-plugin",
     "source": "github"
   },
   "remotes": [{ "type": "streamable-http", "url": "https://mcp-dev.follow-the-flow.app/v1/mcp" }]

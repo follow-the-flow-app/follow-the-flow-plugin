@@ -6,13 +6,13 @@
   "plugins": [
     {
       "name": "follow-the-flow",
-      "displayName": "Follow The Flow MCP",
-      "description": "Connect to Follow The Flow. See who you are, which workflow products you can use, and run them; every operation is authorized by the server.",
+      "displayName": "Follow The Flow",
+      "description": "Work with Follow The Flow from your AI agent. Everything it does is authorized by Follow The Flow with your existing permissions.",
       "version": "1.0.0",
       "author": { "name": "Follow The Flow" },
       "source": "./",
       "category": "productivity",
-      "homepage": "https://github.com/follow-the-flow-app/follow-the-flow-mcp-server"
+      "homepage": "https://github.com/follow-the-flow-app/follow-the-flow-plugin"
     }
   ]
 }
