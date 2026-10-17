@@ -25,13 +25,22 @@ const PLUGIN_NAME = "follow-the-flow";
 const isObject = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 const isSemver = (value) => typeof value === "string" && SEMVER.test(value);
 const isText = (value) => typeof value === "string" && value !== "";
-const hasName = (value) => isObject(value) && isText(value.name);
-const isKeywords = (value) => Array.isArray(value) && value.length > 0 && value.every(isText);
+
+/** Field shapes: a check, and the words an error uses for it. */
+const TEXT = [isText, "a non-empty string"];
+const NAMED = [(value) => isObject(value) && isText(value.name), "an object with a non-empty name"];
+const KEYWORDS = [
+  (value) => Array.isArray(value) && value.length > 0 && value.every(isText),
+  "a non-empty array of non-empty strings",
+];
+/** I spec I-6 pins the display name in both Claude manifests. */
+const DISPLAY_NAME = [(value) => value === "Follow The Flow", '"Follow The Flow"'];
 
 /** I spec I-6's field table: each field the manifest must carry, and the shape it must have. */
 function requireFields(errors, label, manifest, fields) {
-  for (const [field, ok] of Object.entries(fields)) {
-    if (!ok(manifest[field])) errors.push(`${label} needs ${field}`);
+  for (const [field, [ok, shape]] of Object.entries(fields)) {
+    if (manifest[field] === undefined) errors.push(`${label} needs ${field}`);
+    else if (!ok(manifest[field])) errors.push(`${label} ${field} must be ${shape}`);
   }
 }
 
@@ -92,22 +101,22 @@ export async function validateRepository(root) {
   const name = plugin.name;
 
   requireFields(errors, "plugin.json", plugin, {
-    name: isText,
-    version: isText,
-    description: isText,
-    author: hasName,
-    homepage: isText,
-    repository: isText,
-    license: isText,
-    keywords: isKeywords,
+    name: TEXT,
+    version: TEXT,
+    description: TEXT,
+    author: NAMED,
+    homepage: TEXT,
+    repository: TEXT,
+    license: TEXT,
+    keywords: KEYWORDS,
   });
   requireFields(errors, ".claude-plugin/plugin.json", claude, {
-    displayName: isText,
-    description: isText,
-    author: hasName,
+    displayName: DISPLAY_NAME,
+    description: TEXT,
+    author: NAMED,
   });
-  requireFields(errors, ".claude-plugin/marketplace.json", market, { owner: hasName });
-  requireFields(errors, "server.json", server, { description: isText });
+  requireFields(errors, ".claude-plugin/marketplace.json", market, { owner: NAMED });
+  requireFields(errors, "server.json", server, { description: TEXT });
   if (name !== PLUGIN_NAME) errors.push(`plugin.json name ${name} must be ${PLUGIN_NAME}`);
   if (market.name !== PLUGIN_NAME)
     errors.push(`.claude-plugin/marketplace.json name ${market.name} must be ${PLUGIN_NAME}`);
@@ -145,8 +154,8 @@ export async function validateRepository(root) {
     if (entry.category !== "productivity")
       errors.push('.claude-plugin/marketplace.json entry category must be "productivity"');
     requireFields(errors, ".claude-plugin/marketplace.json entry", entry, {
-      displayName: isText,
-      description: isText,
+      displayName: DISPLAY_NAME,
+      description: TEXT,
     });
   }
   if (!market.owner?.email)

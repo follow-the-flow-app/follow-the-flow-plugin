@@ -169,7 +169,7 @@ const BROKEN = [
   [".claude-plugin/marketplace.json", (j) => (j.plugins = {}), "plugins must be an array"],
   ["plugin.json", (j) => (j.version = "1.0.0-beta"), "not x.y.z"],
   ["plugin.json", (j) => (j.version = "v1.0.0"), "not x.y.z"],
-  ["plugin.json", (j) => (j.description = ""), "plugin.json needs description"],
+  ["plugin.json", (j) => (j.description = ""), /^plugin\.json description must be a non-empty string$/],
   // I spec I-6: the marketplace has one plugin entry.
   [
     ".claude-plugin/marketplace.json",
@@ -192,19 +192,30 @@ const BROKEN = [
     (j) => (j.mcpServers = { other: j.mcpServers["follow-the-flow"] }),
     ".mcp.json must list only follow-the-flow",
   ],
-  // I spec I-6's field table. Claude Code rejects a marketplace without owner.name.
-  ["plugin.json", (j) => delete j.author, "plugin.json needs author"],
-  ["plugin.json", (j) => (j.author = { url: "https://follow-the-flow.app" }), "plugin.json needs author"],
-  ["plugin.json", (j) => delete j.homepage, "plugin.json needs homepage"],
-  ["plugin.json", (j) => delete j.repository, "plugin.json needs repository"],
-  ["plugin.json", (j) => (j.keywords = []), "plugin.json needs keywords"],
-  ["plugin.json", (j) => (j.keywords = [""]), "plugin.json needs keywords"],
+  // I spec I-6's field table. Claude Code rejects a marketplace without owner.name. The root
+  // plugin.json rows are anchored: ".claude-plugin/plugin.json needs author" contains "plugin.json needs author".
+  ["plugin.json", (j) => delete j.author, /^plugin\.json needs author$/],
+  ["plugin.json", (j) => (j.author = { url: "https://follow-the-flow.app" }), /^plugin\.json author must be an object/],
+  ["plugin.json", (j) => (j.author = "Follow The Flow"), /^plugin\.json author must be an object/],
+  ["plugin.json", (j) => delete j.homepage, /^plugin\.json needs homepage$/],
+  ["plugin.json", (j) => delete j.repository, /^plugin\.json needs repository$/],
+  [
+    "plugin.json",
+    (j) => (j.repository = { type: "git", url: "https://github.com/follow-the-flow-app/follow-the-flow-plugin" }),
+    /^plugin\.json repository must be a non-empty string$/,
+  ],
+  ["plugin.json", (j) => (j.keywords = []), /^plugin\.json keywords must be a non-empty array/],
+  ["plugin.json", (j) => (j.keywords = [""]), /^plugin\.json keywords must be a non-empty array/],
+  ["plugin.json", (j) => (j.keywords = "mcp"), /^plugin\.json keywords must be a non-empty array/],
   [".claude-plugin/plugin.json", (j) => delete j.displayName, ".claude-plugin/plugin.json needs displayName"],
+  [".claude-plugin/plugin.json", (j) => (j.displayName = "Follow the Flow"), '.claude-plugin/plugin.json displayName must be "Follow The Flow"'],
   [".claude-plugin/plugin.json", (j) => delete j.description, ".claude-plugin/plugin.json needs description"],
   [".claude-plugin/plugin.json", (j) => delete j.author, ".claude-plugin/plugin.json needs author"],
   [".claude-plugin/marketplace.json", (j) => delete j.owner, "marketplace.json needs owner"],
-  [".claude-plugin/marketplace.json", (j) => (j.owner = {}), "marketplace.json needs owner"],
+  [".claude-plugin/marketplace.json", (j) => (j.owner = {}), "marketplace.json owner must be an object with a non-empty name"],
+  [".claude-plugin/marketplace.json", (j) => (j.owner = { name: "" }), "marketplace.json owner must be an object with a non-empty name"],
   [".claude-plugin/marketplace.json", (j) => delete j.plugins[0].displayName, "entry needs displayName"],
+  [".claude-plugin/marketplace.json", (j) => (j.plugins[0].displayName = "FTF"), 'entry displayName must be "Follow The Flow"'],
   [".claude-plugin/marketplace.json", (j) => delete j.plugins[0].description, "entry needs description"],
   [".claude-plugin/marketplace.json", (j) => delete j.plugins[0].category, 'category must be "productivity"'],
   [".claude-plugin/marketplace.json", (j) => (j.plugins[0].category = "other"), 'category must be "productivity"'],
@@ -263,7 +274,7 @@ for (const [file, change, word] of BROKEN) {
   test(`${file}: ${change.toString()} is an error naming "${word}"`, async () => {
     const errors = await errorsOf((dir) => rewrite(dir, file, change));
     assert.ok(
-      errors.some((e) => e.includes(word)),
+      errors.some((e) => (typeof word === "string" ? e.includes(word) : word.test(e))),
       errors.join("\n"),
     );
   });

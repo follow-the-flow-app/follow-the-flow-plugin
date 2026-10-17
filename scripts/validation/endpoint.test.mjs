@@ -4,19 +4,21 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 
-import { checkEndpoint, metadataUrl, runEndpointCheck } from "./endpoint.mjs";
+import { TIMEOUT_MS, checkEndpoint, metadataUrl, runEndpointCheck } from "./endpoint.mjs";
 
 const ENDPOINT = "https://mcp-dev.follow-the-flow.app/v1/mcp";
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 
-/** A fetch that answers with `body` and `status`, and records every URL it was asked for. */
+/** A fetch that answers with `body` and `status`, and records every URL and signal it was given. */
 function fakeFetch(body, status = 200) {
   const urls = [];
-  const fetchImpl = async (url) => {
+  const signals = [];
+  const fetchImpl = async (url, init) => {
     urls.push(url);
+    signals.push(init?.signal);
     return new Response(typeof body === "string" ? body : JSON.stringify(body), { status });
   };
-  return { fetchImpl, urls };
+  return { fetchImpl, urls, signals };
 }
 
 /** Runs checkEndpoint with `fake` and asserts it asked for the metadata URL and nothing else. */
@@ -102,7 +104,8 @@ test("a failed request names its underlying cause", async () => {
 const untilAborted = (signal) =>
   new Promise((_, reject) => signal.addEventListener("abort", () => reject(signal.reason)));
 
-test("a server that never answers is an error once the deadline passes", async () => {
+// The timeout option bounds the test itself, so a deadline that ignores timeoutMs fails rather than waits.
+test("a server that never answers is an error once the deadline passes", { timeout: 2000 }, async () => {
   const errors = await checkEndpoint(ENDPOINT, (_url, { signal }) => untilAborted(signal), 20);
   assert.ok(
     errors.some((e) => e.startsWith("cannot fetch") && e.includes("timeout")),
@@ -110,7 +113,7 @@ test("a server that never answers is an error once the deadline passes", async (
   );
 });
 
-test("a body that never finishes is an error once the same deadline passes", async () => {
+test("a body that never finishes is an error once the same deadline passes", { timeout: 2000 }, async () => {
   const errors = await checkEndpoint(
     ENDPOINT,
     async (_url, { signal }) => ({ ok: true, status: 200, text: () => untilAborted(signal) }),
@@ -147,10 +150,17 @@ test("the full check validates the manifests first and does not fetch when they 
   }
 });
 
+test("the default deadline stops a stalled server before the 5-minute CI job limit, and not instantly", () => {
+  assert.ok(TIMEOUT_MS >= 1_000 && TIMEOUT_MS < 5 * 60_000, String(TIMEOUT_MS));
+});
+
 test("the full check compares this repository's endpoint with the server's resource", async () => {
   const fake = fakeFetch({ resource: "https://mcp.follow-the-flow.app/v1/mcp" });
   const errors = await runEndpointCheck(repoRoot, fake.fetchImpl);
   assert.deepEqual(fake.urls, [metadataUrl(ENDPOINT)]);
+  // The CLI's request carries the default deadline, which has not fired on a prompt answer.
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.equal(fake.signals[0]?.aborted, false);
   assert.ok(
     errors.some((e) => e.includes(ENDPOINT)),
     errors.join("\n"),

@@ -4,7 +4,7 @@ import path from "node:path";
 import { validateRepository } from "./repository.mjs";
 
 /** How long the request and its body may take together: a bound on a stalled server, not a service-level promise. */
-const TIMEOUT_MS = 10_000;
+export const TIMEOUT_MS = 10_000;
 
 /** RFC 9728: the protected resource metadata of `endpoint`, with the well-known path before the endpoint's path. */
 export function metadataUrl(endpoint) {
