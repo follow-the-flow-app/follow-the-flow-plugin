@@ -124,6 +124,28 @@ const BROKEN = [
     (j) => (j.mcpServers["follow-the-flow"].type = "streamable-http"),
     '.claude-plugin/plugin.json transport must be "http"',
   ],
+  [
+    ".claude-plugin/plugin.json",
+    (j) => delete j.mcpServers["follow-the-flow"].type,
+    '.claude-plugin/plugin.json transport must be "http"',
+  ],
+  // A missing URL is named in the "differs" message, not dropped from it.
+  [
+    ".claude-plugin/plugin.json",
+    (j) => delete j.mcpServers["follow-the-flow"].url,
+    '".claude-plugin/plugin.json":null',
+  ],
+  // I spec I-6: a server entry is type and url. Anything else (a header with a token) would ship to every user.
+  [
+    ".claude-plugin/plugin.json",
+    (j) => (j.mcpServers["follow-the-flow"].headers = { Authorization: "Bearer x" }),
+    ".claude-plugin/plugin.json server follow-the-flow may only set type and url, found headers",
+  ],
+  [
+    "mcp.json",
+    (j) => (j.mcpServers["follow-the-flow"].headers = { Authorization: "Bearer x" }),
+    "mcp.json server follow-the-flow may only set type and url, found headers",
+  ],
   ["server.json", (j) => (j.remotes[0].type = "sse"), "server.json remote transport"],
   ["plugin.json", (j) => (j.license = "MIT"), "license"],
   ["plugin.json", (j) => (j.version = "1.0"), "not x.y.z"],
@@ -288,17 +310,36 @@ for (const [kind, create] of [
   });
 }
 
-test("an mcpServers path is reported once, not also as servers named by its characters", async () => {
-  const errors = await errorsOf((dir) =>
-    rewrite(dir, ".claude-plugin/plugin.json", (j) => {
-      j.mcpServers = "./.mcp.json";
-    }),
-  );
-  assert.ok(
-    errors.some((e) => e.includes("mcpServers must be an inline map")),
-    errors.join("\n"),
-  );
-  assert.ok(!errors.some((e) => e.includes('found ["0"')), errors.join("\n"));
+// Not also as a missing server, a wrong transport, or an endpoint that "differs" between two equal URLs.
+for (const value of ["./.mcp.json", [{ type: "http", url: "https://mcp-dev.follow-the-flow.app/v1/mcp" }]]) {
+  test(`mcpServers ${JSON.stringify(value)} is reported once, as not an inline map`, async () => {
+    const errors = await errorsOf((dir) =>
+      rewrite(dir, ".claude-plugin/plugin.json", (j) => {
+        j.mcpServers = value;
+      }),
+    );
+    assert.deepEqual(errors, [".claude-plugin/plugin.json mcpServers must be an inline map"]);
+  });
+}
+
+test("a root .mcp.json does not hide the other errors", async () => {
+  const errors = await errorsOf(async (dir) => {
+    await writeFile(path.join(dir, ".mcp.json"), "{}");
+    await rewrite(dir, ".claude-plugin/plugin.json", (j) => {
+      j.mcpServers["follow-the-flow"].url = "https://mcp.follow-the-flow.app/v1/mcp";
+    });
+  });
+  assert.ok(errors.some((e) => e.startsWith(".mcp.json must not exist")), errors.join("\n"));
+  assert.ok(errors.some((e) => e.startsWith("MCP endpoint differs")), errors.join("\n"));
+});
+
+test("a root .mcp.json is reported alongside a missing file", async () => {
+  const errors = await errorsOf(async (dir) => {
+    await writeFile(path.join(dir, ".mcp.json"), "{}");
+    await rm(path.join(dir, "server.json"));
+  });
+  assert.ok(errors.includes("missing server.json"), errors.join("\n"));
+  assert.ok(errors.some((e) => e.startsWith(".mcp.json must not exist")), errors.join("\n"));
 });
 
 test("a manifest that is not JSON is an error", async () => {

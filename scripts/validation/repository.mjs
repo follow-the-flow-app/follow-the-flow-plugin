@@ -63,6 +63,19 @@ function isEndpoint(value) {
   );
 }
 
+/**
+ * I spec I-6 (10-18 inline addendum): Claude Code loads a root .mcp.json before the inline
+ * mcpServers, and as a project MCP server for anyone who opens Claude Code in this repo.
+ */
+async function rootMcpJsonErrors(root) {
+  try {
+    await lstat(path.join(root, ".mcp.json"));
+    return [".mcp.json must not exist: Claude reads the inline mcpServers in .claude-plugin/plugin.json"];
+  } catch (error) {
+    return error.code === "ENOENT" ? [] : [`cannot check .mcp.json: ${error.message}`];
+  }
+}
+
 /** The checks of I spec I-6: every client's file, one plugin version, one MCP endpoint. */
 export async function validateRepository(root) {
   const errors = [];
@@ -91,15 +104,10 @@ export async function validateRepository(root) {
     }
     if (!isObject(json[file])) errors.push(`${file} must be a JSON object`);
   }
-  // I spec I-6 (10-18 inline addendum): Claude Code loads a root .mcp.json before the inline
-  // mcpServers, and as a project MCP server for anyone who opens Claude Code in this repo.
-  try {
-    await lstat(path.join(root, ".mcp.json"));
-    errors.push(".mcp.json must not exist: Claude reads the inline mcpServers in .claude-plugin/plugin.json");
-  } catch (error) {
-    if (error.code !== "ENOENT") errors.push(`cannot check .mcp.json: ${error.message}`);
-  }
-  if (errors.length > 0) return { errors, warnings };
+  // Reported with the read errors, but never stops the checks below: none of them reads it.
+  const stray = await rootMcpJsonErrors(root);
+  if (errors.length > 0) return { errors: [...errors, ...stray], warnings };
+  errors.push(...stray);
 
   const plugin = json["plugin.json"];
   const claude = json[".claude-plugin/plugin.json"];
@@ -174,34 +182,34 @@ export async function validateRepository(root) {
   if (!isSemver(server.version))
     errors.push(`server.json version ${JSON.stringify(server.version)} is not x.y.z`);
 
-  // I spec I-6: the plugin holds one URL, so each manifest names exactly one server.
-  for (const [file, servers] of [
-    ["mcp.json", json["mcp.json"].mcpServers],
-    [".claude-plugin/plugin.json", claudeServers],
-  ]) {
+  // Each client's MCP manifest and its transport name. An mcpServers that is not an inline map is
+  // already reported; checking its servers would only repeat that under other names.
+  const manifests = [["mcp.json", json["mcp.json"].mcpServers, "streamable-http"]];
+  if (claudeServers) manifests.push([".claude-plugin/plugin.json", claudeServers, "http"]);
+  const urls = {};
+  for (const [file, servers, transport] of manifests) {
+    // I spec I-6: the plugin holds one URL, so each manifest names exactly one server.
     const keys = Object.keys(servers ?? {});
     if (keys.length !== 1 || keys[0] !== name)
       errors.push(`${file} must list only ${name} under mcpServers, found ${JSON.stringify(keys)}`);
+    const entry = servers?.[name];
+    if (entry?.type !== transport) errors.push(`${file} transport must be "${transport}"`);
+    // I spec I-6: a server is type and url. Anything else, such as a header, ships to every user.
+    const extra = isObject(entry) ? Object.keys(entry).filter((key) => key !== "type" && key !== "url") : [];
+    if (extra.length > 0)
+      errors.push(`${file} server ${name} may only set type and url, found ${extra.join(", ")}`);
+    urls[file] = entry?.url;
   }
   if (!Array.isArray(server.remotes) || server.remotes.length !== 1)
     errors.push("server.json must have exactly one remote");
-
-  const portable = json["mcp.json"].mcpServers?.[name];
-  const claudeMcp = claudeServers?.[name];
   const remote = server.remotes?.[0];
-  if (portable?.type !== "streamable-http")
-    errors.push('mcp.json transport must be "streamable-http"');
-  if (claudeMcp?.type !== "http") errors.push('.claude-plugin/plugin.json transport must be "http"');
   if (remote?.type !== "streamable-http")
     errors.push('server.json remote transport must be "streamable-http"');
+  urls["server.json"] = remote?.url;
 
-  const urls = {
-    "mcp.json": portable?.url,
-    ".claude-plugin/plugin.json": claudeMcp?.url,
-    "server.json": remote?.url,
-  };
   if (new Set(Object.values(urls)).size !== 1)
-    errors.push(`MCP endpoint differs: ${JSON.stringify(urls)}`);
+    // A missing URL shows as null: JSON.stringify would drop the key and hide which file it is.
+    errors.push(`MCP endpoint differs: ${JSON.stringify(urls, (key, value) => value ?? null)}`);
   for (const [file, url] of Object.entries(urls)) {
     if (!isEndpoint(url))
       errors.push(`${file} MCP endpoint ${url} must be https://<host>/v<n>/mcp`);
