@@ -121,6 +121,8 @@ export async function validateRepository(root) {
     displayName: DISPLAY_NAME,
     description: TEXT,
     author: NAMED,
+    // I spec I-6 (10-18 inline addendum): Claude's MCP config is inline, not a path.
+    mcpServers: [isObject, "an inline map"],
   });
   requireFields(errors, ".claude-plugin/marketplace.json", market, { owner: NAMED });
   requireFields(errors, "server.json", server, { description: TEXT });
@@ -136,9 +138,7 @@ export async function validateRepository(root) {
     errors.push(
       ".claude-plugin/plugin.json must not set version: the marketplace entry carries it",
     );
-  // I spec I-6 (10-18 inline addendum): Claude's MCP config is inline, not a path.
   const claudeServers = isObject(claude.mcpServers) ? claude.mcpServers : undefined;
-  if (!claudeServers) errors.push(".claude-plugin/plugin.json mcpServers must be an inline map");
 
   const plugins = market.plugins ?? [];
   if (!Array.isArray(plugins))

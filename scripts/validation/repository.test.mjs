@@ -111,25 +111,19 @@ test("the MCP endpoint must be https and end in /v<n>/mcp", async () => {
   );
 });
 
-test("each client's file must use its own transport name", async () => {
-  const errors = await errorsOf((dir) =>
-    rewrite(dir, ".claude-plugin/plugin.json", (j) => {
-      j.mcpServers["follow-the-flow"].type = "streamable-http";
-    }),
-  );
-  assert.ok(
-    errors.some((e) => e.includes('.claude-plugin/plugin.json transport must be "http"')),
-    errors.join("\n"),
-  );
-});
-
 /** Each manifest field the validator guards, broken one at a time, and a word its error must name. */
 const BROKEN = [
   [".claude-plugin/plugin.json", (j) => (j.name = "other"), "name"],
   // I spec I-6 (10-18 inline addendum): the old path form is no longer accepted.
   [".claude-plugin/plugin.json", (j) => (j.mcpServers = "./.mcp.json"), "mcpServers must be an inline map"],
+  [".claude-plugin/plugin.json", (j) => delete j.mcpServers, ".claude-plugin/plugin.json needs mcpServers"],
   [".claude-plugin/marketplace.json", (j) => (j.plugins[0].source = "./plugin"), "source"],
   ["mcp.json", (j) => (j.mcpServers["follow-the-flow"].type = "http"), "mcp.json transport"],
+  [
+    ".claude-plugin/plugin.json",
+    (j) => (j.mcpServers["follow-the-flow"].type = "streamable-http"),
+    '.claude-plugin/plugin.json transport must be "http"',
+  ],
   ["server.json", (j) => (j.remotes[0].type = "sse"), "server.json remote transport"],
   ["plugin.json", (j) => (j.license = "MIT"), "license"],
   ["plugin.json", (j) => (j.version = "1.0"), "not x.y.z"],
@@ -280,25 +274,31 @@ for (const [file, change, word] of BROKEN) {
   });
 }
 
-test("a root .mcp.json is an error: Claude Code would load it first, in this repo too (I spec I-6)", async () => {
-  const errors = await errorsOf((dir) =>
-    writeFile(
-      path.join(dir, ".mcp.json"),
-      JSON.stringify({ mcpServers: { "follow-the-flow": { type: "http", url: "https://mcp-dev.follow-the-flow.app/v1/mcp" } } }),
-    ),
-  );
-  assert.ok(
-    errors.some((e) => e.startsWith(".mcp.json must not exist")),
-    errors.join("\n"),
-  );
-});
+// I spec I-6: Claude Code would load a root .mcp.json first, and in this repo as a project server.
+for (const [kind, create] of [
+  ["file", (file) => writeFile(file, "{}")],
+  ["dangling symlink", (file) => symlink("missing.json", file)],
+]) {
+  test(`a root .mcp.json that is a ${kind} is an error`, async () => {
+    const errors = await errorsOf((dir) => create(path.join(dir, ".mcp.json")));
+    assert.ok(
+      errors.some((e) => e.startsWith(".mcp.json must not exist")),
+      errors.join("\n"),
+    );
+  });
+}
 
-test("a root .mcp.json that is a dangling symlink is still an error", async () => {
-  const errors = await errorsOf((dir) => symlink("missing.json", path.join(dir, ".mcp.json")));
+test("an mcpServers path is reported once, not also as servers named by its characters", async () => {
+  const errors = await errorsOf((dir) =>
+    rewrite(dir, ".claude-plugin/plugin.json", (j) => {
+      j.mcpServers = "./.mcp.json";
+    }),
+  );
   assert.ok(
-    errors.some((e) => e.startsWith(".mcp.json must not exist")),
+    errors.some((e) => e.includes("mcpServers must be an inline map")),
     errors.join("\n"),
   );
+  assert.ok(!errors.some((e) => e.includes('found ["0"')), errors.join("\n"));
 });
 
 test("a manifest that is not JSON is an error", async () => {
