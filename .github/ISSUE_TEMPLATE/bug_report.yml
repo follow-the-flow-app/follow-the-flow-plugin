@@ -13,5 +13,6 @@ body:
     id: what
     attributes:
       label: What happened, and what you expected
+      description: Do not paste access tokens, cookies, or logs that contain them.
     validations:
       required: true

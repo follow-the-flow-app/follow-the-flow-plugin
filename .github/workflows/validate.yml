@@ -1,5 +1,13 @@
 name: validate
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  # The server's MCP_RESOURCE_URL changes when it is deployed, not when this repo changes.
+  schedule:
+    - cron: "17 3 * * *"
+permissions:
+  contents: read
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -10,3 +18,11 @@ jobs:
           node-version: "24"
       - run: npm test
       - run: npm run validate
+  endpoint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: npm run check:endpoint

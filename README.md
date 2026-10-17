@@ -37,7 +37,7 @@ All tools except `startWorkflowRun` only read.
 | Claude Code plugin and marketplace                     | `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `.mcp.json` |
 | MCP registry                                           | `server.json`                                                                |
 
-`npm test` and `npm run validate` check every manifest; CI runs both.
+`npm test` and `npm run validate` check every manifest. `npm run check:endpoint` checks that the manifests name the live server's MCP endpoint, read from its public RFC 9728 metadata (no token needed). CI runs all three, and runs them daily as well, because the server can change without this repository changing.
 
 ## License
 

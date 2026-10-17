@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
@@ -141,6 +141,32 @@ const BROKEN = [
     "server.json name app.follow-the-flow/other-server",
   ],
   ["server.json", (j) => delete j.name, "server.json name undefined"],
+  // The README's install command is follow-the-flow@follow-the-flow: both names are part of it.
+  ["plugin.json", (j) => (j.name = "other"), "plugin.json name other"],
+  [".claude-plugin/marketplace.json", (j) => (j.name = "other"), "marketplace.json name other"],
+  // I spec I-6: the plugin holds one URL, so a second server or remote is an error.
+  [
+    ".mcp.json",
+    (j) => (j.mcpServers.other = { type: "http", url: "http://evil.example/x" }),
+    ".mcp.json must list only follow-the-flow",
+  ],
+  [
+    "mcp.json",
+    (j) => (j.mcpServers.other = { type: "streamable-http", url: "http://evil.example/x" }),
+    "mcp.json must list only follow-the-flow",
+  ],
+  [
+    "server.json",
+    (j) => j.remotes.push({ type: "streamable-http", url: "http://evil.example/mcp" }),
+    "server.json must have exactly one remote",
+  ],
+  [
+    ".claude-plugin/marketplace.json",
+    (j) => j.plugins.push({ ...j.plugins[0], version: "9.9.9", source: "./other" }),
+    "lists 2 plugins named follow-the-flow",
+  ],
+  ["server.json", (j) => (j.version = ["1.0.0"]), "not x.y.z"],
+  [".claude-plugin/marketplace.json", (j) => (j.plugins = {}), "plugins must be an array"],
 ];
 
 for (const [file, change, word] of BROKEN) {
@@ -157,6 +183,38 @@ test("a manifest that is not JSON is an error", async () => {
   const errors = await errorsOf((dir) => writeFile(path.join(dir, "server.json"), "{"));
   assert.ok(
     errors.some((e) => e.includes("server.json is not valid JSON")),
+    errors.join("\n"),
+  );
+});
+
+test("a manifest that is JSON but not an object is an error, not a crash", async () => {
+  const errors = await errorsOf((dir) => writeFile(path.join(dir, "plugin.json"), "null"));
+  assert.ok(
+    errors.some((e) => e.includes("plugin.json must be a JSON object")),
+    errors.join("\n"),
+  );
+});
+
+test("a file that exists but cannot be read is not reported as missing", async () => {
+  const errors = await errorsOf(async (dir) => {
+    await rm(path.join(dir, "server.json"));
+    await mkdir(path.join(dir, "server.json"));
+  });
+  assert.ok(
+    errors.some((e) => e.startsWith("cannot read server.json")),
+    errors.join("\n"),
+  );
+  assert.ok(!errors.some((e) => e === "missing server.json"), errors.join("\n"));
+});
+
+test("a file whose existence cannot be checked is not reported as missing", async () => {
+  // A symlink to itself: access() fails with ELOOP, not ENOENT.
+  const errors = await errorsOf(async (dir) => {
+    await rm(path.join(dir, "server.json"));
+    await symlink("server.json", path.join(dir, "server.json"));
+  });
+  assert.ok(
+    errors.some((e) => e.startsWith("cannot read server.json")),
     errors.join("\n"),
   );
 });
