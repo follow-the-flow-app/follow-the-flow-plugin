@@ -1,0 +1,11 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "follow-the-flow",
+  "version": "1.0.0",
+  "description": "Connect AI agents to Follow The Flow: see who you are, which workflow products you can use, and run them. Every call is authorized by the server.",
+  "author": { "name": "Follow The Flow", "url": "https://follow-the-flow.app" },
+  "homepage": "https://github.com/follow-the-flow-app/follow-the-flow-mcp-server#readme",
+  "repository": "https://github.com/follow-the-flow-app/follow-the-flow-mcp-server",
+  "license": "Apache-2.0",
+  "keywords": ["follow-the-flow", "cpa-firm-os", "workflow", "mcp"]
+}

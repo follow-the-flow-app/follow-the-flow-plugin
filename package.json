@@ -1,0 +1,9 @@
+{
+  "name": "follow-the-flow-mcp-server-package",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test scripts/validation/*.test.mjs",
+    "validate": "node scripts/validate-template.mjs"
+  }
+}

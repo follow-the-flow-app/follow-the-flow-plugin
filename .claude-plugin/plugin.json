@@ -1,0 +1,7 @@
+{
+  "name": "follow-the-flow",
+  "displayName": "Follow The Flow MCP",
+  "description": "Connect to Follow The Flow. See who you are, which workflow products you can use, and run them; every operation is authorized by the server.",
+  "author": { "name": "Follow The Flow" },
+  "mcpServers": "./.mcp.json"
+}

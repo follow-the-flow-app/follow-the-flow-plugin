@@ -1,0 +1,18 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "follow-the-flow",
+  "description": "Follow The Flow plugin marketplace",
+  "owner": { "name": "Follow The Flow" },
+  "plugins": [
+    {
+      "name": "follow-the-flow",
+      "displayName": "Follow The Flow MCP",
+      "description": "Connect to Follow The Flow. See who you are, which workflow products you can use, and run them; every operation is authorized by the server.",
+      "version": "1.0.0",
+      "author": { "name": "Follow The Flow" },
+      "source": "./",
+      "category": "productivity",
+      "homepage": "https://github.com/follow-the-flow-app/follow-the-flow-mcp-server"
+    }
+  ]
+}

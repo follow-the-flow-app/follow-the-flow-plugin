@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "follow-the-flow": { "type": "http", "url": "https://mcp-dev.follow-the-flow.app/v1/mcp" }
+  }
+}

@@ -1,0 +1,17 @@
+name: Bug report
+description: Something does not work when installing or using the plugin
+body:
+  - type: dropdown
+    id: client
+    attributes:
+      label: Client
+      options:
+        [Claude Code, Claude Desktop, Codex CLI, Codex in the ChatGPT desktop app, ChatGPT, Other]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+    validations:
+      required: true
