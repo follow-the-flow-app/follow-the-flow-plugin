@@ -191,6 +191,9 @@ const BAD_ENDPOINTS = [
   "https://user@mcp-dev.follow-the-flow.app/v1/mcp",
   "https://:pw@mcp-dev.follow-the-flow.app/v1/mcp",
   "https://mcp-dev.follow-the-flow.app/v1/mcp#x",
+  // An empty query or fragment: URL reports "" for both, but the client still sends the character.
+  "https://mcp-dev.follow-the-flow.app/v1/mcp?",
+  "https://mcp-dev.follow-the-flow.app/v1/mcp#",
   "https://mcp-dev.follow-the-flow.app:99999/v1/mcp",
   "https://MCP-DEV.follow-the-flow.app/v1/mcp",
 ];

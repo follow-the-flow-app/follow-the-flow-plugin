@@ -40,7 +40,8 @@ function isEndpoint(value) {
     url.search === "" &&
     url.hash === "" &&
     ENDPOINT_PATH.test(url.pathname) &&
-    url.href === value
+    // Not url.href: it keeps an empty "?" or "#", which search and hash report as "".
+    `${url.origin}${url.pathname}` === value
   );
 }
 
