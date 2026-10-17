@@ -31,11 +31,11 @@ All tools except `startWorkflowRun` only read.
 
 ## Packaging
 
-| Format                                                 | Manifest                                                                     |
-| ------------------------------------------------------ | ---------------------------------------------------------------------------- |
-| [Agent Plugins v1](https://agent-plugins.org/) (Codex) | `plugin.json`, `mcp.json`                                                    |
-| Claude Code plugin and marketplace                     | `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `.mcp.json` |
-| MCP registry                                           | `server.json`                                                                |
+| Format                                                 | Manifest                                                                            |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| [Agent Plugins v1](https://agent-plugins.org/) (Codex) | `plugin.json`, `mcp.json`                                                           |
+| Claude Code plugin and marketplace                     | `.claude-plugin/plugin.json` (MCP server inline), `.claude-plugin/marketplace.json` |
+| MCP registry                                           | `server.json`                                                                       |
 
 `npm test` and `npm run validate` check every manifest. `npm run check:endpoint` runs `validate`, then checks that the endpoint the manifests agree on is the resource the live server names in its public RFC 9728 metadata (no token needed). It shows the manifests agree with the server they point at, not that they point at the right environment. CI runs all three on every push and pull request, and daily, because the server can change without this repository changing. GitHub turns the daily run off after 60 days without activity in this repository; turn it back on under **Actions** → **validate**.
 

@@ -1,10 +1,9 @@
-import { access, readFile } from "node:fs/promises";
+import { access, lstat, readFile } from "node:fs/promises";
 import path from "node:path";
 
 const REQUIRED = [
   "plugin.json",
   "mcp.json",
-  ".mcp.json",
   ".claude-plugin/plugin.json",
   ".claude-plugin/marketplace.json",
   "server.json",
@@ -92,6 +91,14 @@ export async function validateRepository(root) {
     }
     if (!isObject(json[file])) errors.push(`${file} must be a JSON object`);
   }
+  // I spec I-6 (10-18 inline addendum): Claude Code loads a root .mcp.json before the inline
+  // mcpServers, and as a project MCP server for anyone who opens Claude Code in this repo.
+  try {
+    await lstat(path.join(root, ".mcp.json"));
+    errors.push(".mcp.json must not exist: Claude reads the inline mcpServers in .claude-plugin/plugin.json");
+  } catch (error) {
+    if (error.code !== "ENOENT") errors.push(`cannot check .mcp.json: ${error.message}`);
+  }
   if (errors.length > 0) return { errors, warnings };
 
   const plugin = json["plugin.json"];
@@ -129,8 +136,9 @@ export async function validateRepository(root) {
     errors.push(
       ".claude-plugin/plugin.json must not set version: the marketplace entry carries it",
     );
-  if (claude.mcpServers !== "./.mcp.json")
-    errors.push('.claude-plugin/plugin.json mcpServers must be "./.mcp.json"');
+  // I spec I-6 (10-18 inline addendum): Claude's MCP config is inline, not a path.
+  const claudeServers = isObject(claude.mcpServers) ? claude.mcpServers : undefined;
+  if (!claudeServers) errors.push(".claude-plugin/plugin.json mcpServers must be an inline map");
 
   const plugins = market.plugins ?? [];
   if (!Array.isArray(plugins))
@@ -167,8 +175,11 @@ export async function validateRepository(root) {
     errors.push(`server.json version ${JSON.stringify(server.version)} is not x.y.z`);
 
   // I spec I-6: the plugin holds one URL, so each manifest names exactly one server.
-  for (const file of ["mcp.json", ".mcp.json"]) {
-    const keys = Object.keys(json[file].mcpServers ?? {});
+  for (const [file, servers] of [
+    ["mcp.json", json["mcp.json"].mcpServers],
+    [".claude-plugin/plugin.json", claudeServers],
+  ]) {
+    const keys = Object.keys(servers ?? {});
     if (keys.length !== 1 || keys[0] !== name)
       errors.push(`${file} must list only ${name} under mcpServers, found ${JSON.stringify(keys)}`);
   }
@@ -176,17 +187,17 @@ export async function validateRepository(root) {
     errors.push("server.json must have exactly one remote");
 
   const portable = json["mcp.json"].mcpServers?.[name];
-  const claudeMcp = json[".mcp.json"].mcpServers?.[name];
+  const claudeMcp = claudeServers?.[name];
   const remote = server.remotes?.[0];
   if (portable?.type !== "streamable-http")
     errors.push('mcp.json transport must be "streamable-http"');
-  if (claudeMcp?.type !== "http") errors.push('.mcp.json transport must be "http"');
+  if (claudeMcp?.type !== "http") errors.push('.claude-plugin/plugin.json transport must be "http"');
   if (remote?.type !== "streamable-http")
     errors.push('server.json remote transport must be "streamable-http"');
 
   const urls = {
     "mcp.json": portable?.url,
-    ".mcp.json": claudeMcp?.url,
+    ".claude-plugin/plugin.json": claudeMcp?.url,
     "server.json": remote?.url,
   };
   if (new Set(Object.values(urls)).size !== 1)

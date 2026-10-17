@@ -3,5 +3,7 @@
   "displayName": "Follow The Flow",
   "description": "Work with Follow The Flow from your AI agent. Everything it does is authorized by Follow The Flow with your existing permissions.",
   "author": { "name": "Follow The Flow" },
-  "mcpServers": "./.mcp.json"
+  "mcpServers": {
+    "follow-the-flow": { "type": "http", "url": "https://mcp-dev.follow-the-flow.app/v1/mcp" }
+  }
 }

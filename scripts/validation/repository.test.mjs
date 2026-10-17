@@ -14,7 +14,6 @@ async function fixture(edit) {
   for (const file of [
     "plugin.json",
     "mcp.json",
-    ".mcp.json",
     ".claude-plugin",
     "server.json",
     "README.md",
@@ -81,9 +80,9 @@ test(".claude-plugin/plugin.json must not set a version (I spec I-6)", async () 
   );
 });
 
-test("the MCP endpoint must be the same in mcp.json, .mcp.json and server.json", async () => {
+test("the MCP endpoint must be the same in mcp.json, the inline mcpServers and server.json", async () => {
   const errors = await errorsOf((dir) =>
-    rewrite(dir, ".mcp.json", (j) => {
+    rewrite(dir, ".claude-plugin/plugin.json", (j) => {
       j.mcpServers["follow-the-flow"].url = "https://mcp.follow-the-flow.app/v1/mcp";
     }),
   );
@@ -99,7 +98,7 @@ test("the MCP endpoint must be https and end in /v<n>/mcp", async () => {
     await rewrite(dir, "mcp.json", (j) => {
       j.mcpServers["follow-the-flow"].url = url;
     });
-    await rewrite(dir, ".mcp.json", (j) => {
+    await rewrite(dir, ".claude-plugin/plugin.json", (j) => {
       j.mcpServers["follow-the-flow"].url = url;
     });
     await rewrite(dir, "server.json", (j) => {
@@ -114,12 +113,12 @@ test("the MCP endpoint must be https and end in /v<n>/mcp", async () => {
 
 test("each client's file must use its own transport name", async () => {
   const errors = await errorsOf((dir) =>
-    rewrite(dir, ".mcp.json", (j) => {
+    rewrite(dir, ".claude-plugin/plugin.json", (j) => {
       j.mcpServers["follow-the-flow"].type = "streamable-http";
     }),
   );
   assert.ok(
-    errors.some((e) => e.includes(".mcp.json")),
+    errors.some((e) => e.includes('.claude-plugin/plugin.json transport must be "http"')),
     errors.join("\n"),
   );
 });
@@ -127,7 +126,8 @@ test("each client's file must use its own transport name", async () => {
 /** Each manifest field the validator guards, broken one at a time, and a word its error must name. */
 const BROKEN = [
   [".claude-plugin/plugin.json", (j) => (j.name = "other"), "name"],
-  [".claude-plugin/plugin.json", (j) => (j.mcpServers = "./mcp.json"), "mcpServers"],
+  // I spec I-6 (10-18 inline addendum): the old path form is no longer accepted.
+  [".claude-plugin/plugin.json", (j) => (j.mcpServers = "./.mcp.json"), "mcpServers must be an inline map"],
   [".claude-plugin/marketplace.json", (j) => (j.plugins[0].source = "./plugin"), "source"],
   ["mcp.json", (j) => (j.mcpServers["follow-the-flow"].type = "http"), "mcp.json transport"],
   ["server.json", (j) => (j.remotes[0].type = "sse"), "server.json remote transport"],
@@ -146,9 +146,9 @@ const BROKEN = [
   [".claude-plugin/marketplace.json", (j) => (j.name = "other"), "marketplace.json name other"],
   // I spec I-6: the plugin holds one URL, so a second server or remote is an error.
   [
-    ".mcp.json",
+    ".claude-plugin/plugin.json",
     (j) => (j.mcpServers.other = { type: "http", url: "http://evil.example/x" }),
-    ".mcp.json must list only follow-the-flow",
+    ".claude-plugin/plugin.json must list only follow-the-flow",
   ],
   [
     "mcp.json",
@@ -188,9 +188,9 @@ const BROKEN = [
     "mcp.json must list only follow-the-flow",
   ],
   [
-    ".mcp.json",
+    ".claude-plugin/plugin.json",
     (j) => (j.mcpServers = { other: j.mcpServers["follow-the-flow"] }),
-    ".mcp.json must list only follow-the-flow",
+    ".claude-plugin/plugin.json must list only follow-the-flow",
   ],
   // I spec I-6's field table. Claude Code rejects a marketplace without owner.name. The root
   // plugin.json rows are anchored: ".claude-plugin/plugin.json needs author" contains "plugin.json needs author".
@@ -245,7 +245,7 @@ const BAD_ENDPOINTS = [
 for (const url of BAD_ENDPOINTS) {
   test(`the endpoint ${url} in all three manifests is an error`, async () => {
     const errors = await errorsOf(async (dir) => {
-      for (const file of ["mcp.json", ".mcp.json"]) {
+      for (const file of ["mcp.json", ".claude-plugin/plugin.json"]) {
         await rewrite(dir, file, (j) => {
           j.mcpServers["follow-the-flow"].url = url;
         });
@@ -279,6 +279,27 @@ for (const [file, change, word] of BROKEN) {
     );
   });
 }
+
+test("a root .mcp.json is an error: Claude Code would load it first, in this repo too (I spec I-6)", async () => {
+  const errors = await errorsOf((dir) =>
+    writeFile(
+      path.join(dir, ".mcp.json"),
+      JSON.stringify({ mcpServers: { "follow-the-flow": { type: "http", url: "https://mcp-dev.follow-the-flow.app/v1/mcp" } } }),
+    ),
+  );
+  assert.ok(
+    errors.some((e) => e.startsWith(".mcp.json must not exist")),
+    errors.join("\n"),
+  );
+});
+
+test("a root .mcp.json that is a dangling symlink is still an error", async () => {
+  const errors = await errorsOf((dir) => symlink("missing.json", path.join(dir, ".mcp.json")));
+  assert.ok(
+    errors.some((e) => e.startsWith(".mcp.json must not exist")),
+    errors.join("\n"),
+  );
+});
 
 test("a manifest that is not JSON is an error", async () => {
   const errors = await errorsOf((dir) => writeFile(path.join(dir, "server.json"), "{"));
