@@ -1,0 +1,18 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "follow-the-flow",
+  "description": "Follow The Flow plugin marketplace",
+  "owner": { "name": "Follow The Flow" },
+  "plugins": [
+    {
+      "name": "follow-the-flow",
+      "displayName": "Follow The Flow",
+      "description": "Work with Follow The Flow from your AI agent. Everything it does is authorized by Follow The Flow with your existing permissions.",
+      "version": "1.0.0",
+      "author": { "name": "Follow The Flow" },
+      "source": "./",
+      "category": "productivity",
+      "homepage": "https://github.com/follow-the-flow-app/follow-the-flow-plugin"
+    }
+  ]
+}
