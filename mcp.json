@@ -1,0 +1,9 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "follow-the-flow": {
+      "type": "streamable-http",
+      "url": "https://mcp-dev.follow-the-flow.app/v1/mcp"
+    }
+  }
+}

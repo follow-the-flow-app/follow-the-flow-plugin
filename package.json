@@ -1,0 +1,10 @@
+{
+  "name": "follow-the-flow-plugin",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test scripts/validation/*.test.mjs",
+    "validate": "node scripts/validate-template.mjs",
+    "check:endpoint": "node scripts/check-endpoint.mjs"
+  }
+}
