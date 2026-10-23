@@ -17,6 +17,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
+          # Without it the runner's cached 24.x is used, which lags behind security releases.
+          check-latest: true
       - run: npm test
       - run: npm run validate
   endpoint:
@@ -27,4 +29,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
+          check-latest: true
       - run: npm run check:endpoint
