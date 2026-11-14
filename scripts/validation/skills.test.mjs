@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 
 import { parseFrontmatter, validateSkills } from "./skills.mjs";
 
-/** A temporary root whose skills/ holds `files` ({ "<relative path>": "<content>" }); a path ending in "/" is a directory. */
+/** A temporary root holding `files` ({ "<path relative to the root>": "<content>" }), checked by validateSkills; a path ending in "/" is a directory. */
 async function errorsOf(files) {
   const root = await mkdtemp(path.join(tmpdir(), "ftf-skills-"));
   try {
@@ -43,10 +43,24 @@ test("a file directly under skills is ignored", async () => {
   );
 });
 
+test("a skill directory that is a symlink is an error", async () => {
+  // A client that follows it ships a skill never checked; one that does not loses the skill.
+  const root = await mkdtemp(path.join(tmpdir(), "ftf-skills-"));
+  try {
+    await mkdir(path.join(root, "shared", "run-x"), { recursive: true });
+    await writeFile(path.join(root, "shared", "run-x", "SKILL.md"), VALID);
+    await mkdir(path.join(root, "skills"));
+    await symlink(path.join(root, "shared", "run-x"), path.join(root, "skills", "run-x"));
+    const errors = await validateSkills(root);
+    assert.equal(errors.length, 1, errors.join("\n"));
+    assert.match(errors[0], /skills\/run-x/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("skills that is not a directory is an error", async () => {
-  const errors = await errorsOf({ skills: "not a directory" });
-  assert.equal(errors.length, 1, errors.join("\n"));
-  assert.match(errors[0], /skills/);
+  assert.deepEqual(await errorsOf({ skills: "not a directory" }), ["skills must be a directory"]);
 });
 
 test("a skill directory without SKILL.md is an error", async () => {
@@ -80,6 +94,28 @@ test("an unsupported frontmatter line is an error", async () => {
     "name: run-x\ndescription: x # comment",
     "name: run-x\ndescription: [a, b]",
     "name: run-x\ndescription: \"unterminated",
+    // Each one YAML reads as something other than this text, or refuses.
+    "name: run-x\ndescription: >",
+    "name: run-x\ndescription: |",
+    "name: run-x\ndescription: # TODO",
+    "name: run-x\ndescription: Use it for:",
+    "name: run-x\ndescription: - Runs workflows",
+    "name: run-x\ndescription: -",
+    "name: run-x\ndescription: *ref",
+    "name: run-x\ndescription: &a text",
+    "name: run-x\ndescription: !!int 5",
+    "name: run-x\ndescription: {x}",
+    "name: run-x\ndescription: 'abc",
+    "name: run-x\ndescription: @x",
+    "name: run-x\ndescription: %x",
+    "name: run-x\ndescription: `x",
+    "name: run-x\ndescription: ,foo",
+    "name: run-x\ndescription: x\t# c",
+    "name: run-x\ndescription: a:\tb",
+    'name: run-x\ndescription: "a\\x41"',
+    "name: run-x\ndescription: 'a' b",
+    "name: run-x\ndescription:   ",
+    "name:run-x\ndescription: x",
   ]) {
     const errors = await errorsOf({ "skills/run-x/SKILL.md": skill(frontmatter) });
     assert.equal(errors.length, 1, `${frontmatter}\n${errors.join("\n")}`);
@@ -91,11 +127,59 @@ test("a plain value YAML reads as a number, boolean or null is an error", async 
   // A directory named 123 and `name: 123` would pass every name check if 123 were read as text.
   const errors = await errorsOf({ "skills/123/SKILL.md": skill('name: 123\ndescription: "x"') });
   assert.equal(errors.length, 1, errors.join("\n"));
-  for (const description of ["true", "null", "~", "1e3"]) {
+  for (const description of [
+    "true", "False", "FALSE", "null", "NULL", "~", "1e3", "-1", "+5", ".5",
+    ".inf", "-.inf", ".nan", "0x1f", "0o17",
+  ]) {
     const found = await errorsOf({ "skills/run-x/SKILL.md": skill(`name: run-x\ndescription: ${description}`) });
     assert.equal(found.length, 1, `${description}\n${found.join("\n")}`);
   }
   assert.deepEqual(await errorsOf({ "skills/123/SKILL.md": skill('name: "123"\ndescription: "x"') }), []);
+});
+
+test("a name YAML reads as a boolean or number is an error even when it matches its directory", async () => {
+  for (const name of ["false", "0x1f", "0o17"]) {
+    const errors = await errorsOf({ [`skills/${name}/SKILL.md`]: skill(`name: ${name}\ndescription: "x"`) });
+    assert.equal(errors.length, 1, `${name}\n${errors.join("\n")}`);
+  }
+});
+
+test("plain values YAML reads as text are accepted", async () => {
+  assert.deepEqual(
+    await errorsOf({ "skills/3d-render/SKILL.md": skill("name: 3d-render\ndescription: true to the preview") }),
+    [],
+  );
+  assert.deepEqual(await errorsOf({ "skills/run-x/SKILL.md": skill("name: run-x\ndescription: Runs step 2") }), []);
+  assert.deepEqual(
+    await errorsOf({ "skills/run-x/SKILL.md": skill('name: run-x \ndescription: "x" ') }),
+    [],
+    "trailing whitespace",
+  );
+  assert.deepEqual(
+    await errorsOf({ "skills/run-x/SKILL.md": skill('# comment\nname: run-x\n\n   \ndescription: "x"') }),
+    [],
+    "blank and comment lines",
+  );
+});
+
+test("a SKILL.md that is a symlink, or a skills that is a symlink, is an error", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "ftf-skills-"));
+  try {
+    await mkdir(path.join(root, "skills", "run-x"), { recursive: true });
+    await writeFile(path.join(root, "real.md"), VALID);
+    await symlink(path.join(root, "real.md"), path.join(root, "skills", "run-x", "SKILL.md"));
+    let errors = await validateSkills(root);
+    assert.equal(errors.length, 1, errors.join("\n"));
+    assert.match(errors[0], /skills\/run-x\/SKILL\.md must be a regular file/);
+    await rm(path.join(root, "skills"), { recursive: true });
+    await mkdir(path.join(root, "elsewhere", "run-x"), { recursive: true });
+    await writeFile(path.join(root, "elsewhere", "run-x", "SKILL.md"), VALID);
+    await symlink(path.join(root, "elsewhere"), path.join(root, "skills"));
+    errors = await validateSkills(root);
+    assert.deepEqual(errors, ["skills must be a directory"]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("a duplicate key is an error", async () => {

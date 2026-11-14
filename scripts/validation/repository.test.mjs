@@ -93,6 +93,29 @@ test(".claude-plugin/plugin.json must not set skills (I spec I-6, RD-168)", asyn
   );
 });
 
+test(".claude-plugin/plugin.json must not set skills, even to an empty value", async () => {
+  for (const value of ["", null, false]) {
+    const errors = await errorsOf((dir) =>
+      rewrite(dir, ".claude-plugin/plugin.json", (j) => {
+        j.skills = value;
+      }),
+    );
+    assert.ok(
+      errors.some((e) => e.includes("must not set skills")),
+      `${JSON.stringify(value)}\n${errors.join("\n")}`,
+    );
+  }
+});
+
+test("a skill error is reported alongside a missing file", async () => {
+  const errors = await errorsOf(async (dir) => {
+    await rm(path.join(dir, "server.json"));
+    await mkdir(path.join(dir, "skills", "broken"), { recursive: true });
+  });
+  assert.ok(errors.some((e) => e.includes("server.json")), errors.join("\n"));
+  assert.ok(errors.some((e) => e.includes("skills/broken/SKILL.md")), errors.join("\n"));
+});
+
 test("a skill error is reported by validateRepository", async () => {
   const errors = await errorsOf((dir) => mkdir(path.join(dir, "skills", "broken"), { recursive: true }));
   assert.ok(

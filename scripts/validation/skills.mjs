@@ -15,11 +15,13 @@ const NOT_A_STRING =
 
 /**
  * A plain (unquoted) value as YAML reads it, or undefined when YAML would read it as something this
- * validator does not: another type, a flow collection, a block scalar, a comment, an alias.
+ * validator does not: null (nothing), another type, a flow collection, a block scalar, a comment,
+ * an alias, or an error.
  */
 function plain(value) {
-  if (/^[[\]{}#&*!|>'"%@`]/.test(value) || /^[-?:](?:\s|$)/.test(value)) return undefined;
-  if (value.includes(": ") || value.includes(" #") || value.endsWith(":")) return undefined;
+  if (value === "") return undefined;
+  if (/^[[\]{}#&*!|>'"%@`,]/.test(value) || /^[-?:](?:\s|$)/.test(value)) return undefined;
+  if (/:\s/.test(value) || /\s#/.test(value) || value.endsWith(":")) return undefined;
   return NOT_A_STRING.test(value) ? undefined : value;
 }
 
@@ -80,6 +82,9 @@ export async function validateSkills(root) {
   } catch (error) {
     return [`cannot read skills: ${error.message}`];
   }
+  // A client that follows a symlinked skill ships one never checked here; one that does not loses it.
+  for (const entry of entries.filter((e) => e.isSymbolicLink()))
+    errors.push(`skills/${entry.name} must be a directory, not a symlink`);
   for (const entry of entries.filter((e) => e.isDirectory())) {
     const file = path.join(dir, entry.name, "SKILL.md");
     const label = relative(root, file);
