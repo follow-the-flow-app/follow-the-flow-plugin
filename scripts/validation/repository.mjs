@@ -1,6 +1,8 @@
 import { access, lstat, readFile } from "node:fs/promises";
 import path from "node:path";
 
+import { validateSkills } from "./skills.mjs";
+
 const REQUIRED = [
   "plugin.json",
   "mcp.json",
@@ -147,6 +149,9 @@ export async function validateRepository(root) {
     errors.push(
       ".claude-plugin/plugin.json must not set version: the marketplace entry carries it",
     );
+  // I spec I-6 (RD-168): Claude Code scans skills/ anyway, and a skills key adds directories to it.
+  if ("skills" in claude)
+    errors.push(".claude-plugin/plugin.json must not set skills: skills/ is read without it");
 
   const plugins = market.plugins ?? [];
   if (!Array.isArray(plugins))
@@ -216,5 +221,6 @@ export async function validateRepository(root) {
     if (!isEndpoint(url))
       errors.push(`${file} MCP endpoint ${url} must be https://<host>/v<n>/mcp`);
   }
+  errors.push(...(await validateSkills(root)));
   return { errors, warnings };
 }

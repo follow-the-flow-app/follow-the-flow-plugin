@@ -80,6 +80,26 @@ test(".claude-plugin/plugin.json must not set a version (I spec I-6)", async () 
   );
 });
 
+test(".claude-plugin/plugin.json must not set skills (I spec I-6, RD-168)", async () => {
+  const errors = await errorsOf((dir) =>
+    rewrite(dir, ".claude-plugin/plugin.json", (j) => {
+      j.skills = "./skills/";
+    }),
+  );
+  assert.ok(
+    errors.some((e) => e.includes(".claude-plugin/plugin.json") && e.includes("skills")),
+    errors.join("\n"),
+  );
+});
+
+test("a skill error is reported by validateRepository", async () => {
+  const errors = await errorsOf((dir) => mkdir(path.join(dir, "skills", "broken"), { recursive: true }));
+  assert.ok(
+    errors.some((e) => e.includes("skills/broken/SKILL.md")),
+    errors.join("\n"),
+  );
+});
+
 test("the MCP endpoint must be the same in mcp.json, the inline mcpServers and server.json", async () => {
   const errors = await errorsOf((dir) =>
     rewrite(dir, ".claude-plugin/plugin.json", (j) => {
