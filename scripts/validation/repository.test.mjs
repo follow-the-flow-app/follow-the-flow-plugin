@@ -22,6 +22,7 @@ async function fixture(edit) {
     "CONTRIBUTING.md",
     "CODE_OF_CONDUCT.md",
     "CODEOWNERS",
+    "skills",
   ]) {
     await cp(path.join(repoRoot, file), path.join(dir, file), { recursive: true });
   }
