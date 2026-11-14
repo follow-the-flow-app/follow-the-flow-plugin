@@ -21,13 +21,16 @@ const NOT_A_STRING =
 function plain(value) {
   if (value === "") return undefined;
   if (/^[[\]{}#&*!|>'"%@`,]/.test(value) || /^[-?:](?:\s|$)/.test(value)) return undefined;
-  if (/:\s/.test(value) || /\s#/.test(value) || value.endsWith(":")) return undefined;
+  if (/:[ \t]/.test(value) || /[ \t]#/.test(value) || value.endsWith(":")) return undefined;
   return NOT_A_STRING.test(value) ? undefined : value;
 }
 
-/** One value: double-quoted (JSON's escapes, a subset of YAML's), single-quoted, or plain. */
+/**
+ * One value: double-quoted (JSON's escapes, a subset of YAML's), single-quoted, or plain. YAML's
+ * white space is space and tab only; String#trim would also drop a no-break space YAML keeps.
+ */
 function scalar(raw) {
-  const value = raw.trim();
+  const value = raw.replace(/^[ \t]+|[ \t]+$/g, "");
   if (DOUBLE_QUOTED.test(value)) {
     try {
       return JSON.parse(value);
@@ -51,7 +54,7 @@ export function parseFrontmatter(text) {
   if (end < 0) return { error: "has unterminated YAML frontmatter" };
   const fields = {};
   for (const line of lines.slice(1, end)) {
-    if (/^\s*(?:#.*)?$/.test(line)) continue;
+    if (/^[ \t]*(?:#.*)?$/.test(line)) continue;
     const match = KEY_VALUE.exec(line);
     const value = match?.[2] === undefined ? undefined : scalar(match[2]);
     if (value === undefined) {
@@ -82,9 +85,10 @@ export async function validateSkills(root) {
   } catch (error) {
     return [`cannot read skills: ${error.message}`];
   }
-  // A client that follows a symlinked skill ships one never checked here; one that does not loses it.
+  // Any symlink: a client that follows one ships what was never checked here; one that does not
+  // loses it.
   for (const entry of entries.filter((e) => e.isSymbolicLink()))
-    errors.push(`skills/${entry.name} must be a directory, not a symlink`);
+    errors.push(`skills/${entry.name} must not be a symlink`);
   for (const entry of entries.filter((e) => e.isDirectory())) {
     const file = path.join(dir, entry.name, "SKILL.md");
     const label = relative(root, file);

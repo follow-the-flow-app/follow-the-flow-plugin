@@ -53,7 +53,7 @@ test("a skill directory that is a symlink is an error", async () => {
     await symlink(path.join(root, "shared", "run-x"), path.join(root, "skills", "run-x"));
     const errors = await validateSkills(root);
     assert.equal(errors.length, 1, errors.join("\n"));
-    assert.match(errors[0], /skills\/run-x/);
+    assert.equal(errors[0], "skills/run-x must not be a symlink");
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -116,6 +116,7 @@ test("an unsupported frontmatter line is an error", async () => {
     "name: run-x\ndescription: 'a' b",
     "name: run-x\ndescription:   ",
     "name:run-x\ndescription: x",
+    "name: run-x\n\u00a0\ndescription: x",
   ]) {
     const errors = await errorsOf({ "skills/run-x/SKILL.md": skill(frontmatter) });
     assert.equal(errors.length, 1, `${frontmatter}\n${errors.join("\n")}`);
@@ -150,6 +151,13 @@ test("plain values YAML reads as text are accepted", async () => {
     [],
   );
   assert.deepEqual(await errorsOf({ "skills/run-x/SKILL.md": skill("name: run-x\ndescription: Runs step 2") }), []);
+  for (const description of ["See https://x.app", "At 10:30", "Runs C# builds", "a:\u00a0b", "a\u00a0#b"]) {
+    assert.deepEqual(
+      await errorsOf({ "skills/run-x/SKILL.md": skill(`name: run-x\ndescription: ${description}`) }),
+      [],
+      description,
+    );
+  }
   assert.deepEqual(
     await errorsOf({ "skills/run-x/SKILL.md": skill('name: run-x \ndescription: "x" ') }),
     [],
@@ -160,6 +168,25 @@ test("plain values YAML reads as text are accepted", async () => {
     [],
     "blank and comment lines",
   );
+});
+
+test("a no-break space is part of the value, as YAML reads it", async () => {
+  // String#trim would read "run-x" and pass, while a client reads a name unlike its directory.
+  const errors = await errorsOf({ "skills/run-x/SKILL.md": skill('name: \u00a0run-x\ndescription: "x"') });
+  assert.equal(errors.length, 1, errors.join("\n"));
+  assert.match(errors[0], /name/);
+});
+
+test("a symlinked file directly under skills is an error too", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "ftf-skills-"));
+  try {
+    await mkdir(path.join(root, "skills"));
+    await writeFile(path.join(root, "notes.md"), "# Notes\n");
+    await symlink(path.join(root, "notes.md"), path.join(root, "skills", "README.md"));
+    assert.deepEqual(await validateSkills(root), ["skills/README.md must not be a symlink"]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("a SKILL.md that is a symlink, or a skills that is a symlink, is an error", async () => {

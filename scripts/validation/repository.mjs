@@ -106,8 +106,8 @@ export async function validateRepository(root) {
     }
     if (!isObject(json[file])) errors.push(`${file} must be a JSON object`);
   }
-  // Reported with the read errors, but never stops the checks below: none of them reads it.
-  // The skills in skills/ read none of the JSON either (I spec I-6, RD-168).
+  // Reported with the read errors, but never stops the checks below: none of them reads it. The
+  // skills check reads no manifest, so it runs even when one is missing (I spec I-6, RD-168).
   const stray = [...(await rootMcpJsonErrors(root)), ...(await validateSkills(root))];
   if (errors.length > 0) return { errors: [...errors, ...stray], warnings };
   errors.push(...stray);
@@ -151,7 +151,8 @@ export async function validateRepository(root) {
       ".claude-plugin/plugin.json must not set version: the marketplace entry carries it",
     );
   // I spec I-6 (RD-168): Claude Code scans skills/ anyway and a skills key adds directories to that
-  // scan, so "./skills/" would list the same folder twice, with no documented de-duplication.
+  // scan: "./skills/" would list the same folder twice, with no documented de-duplication, and any
+  // other value adds directories validateSkills never checks.
   if ("skills" in claude)
     errors.push(".claude-plugin/plugin.json must not set skills: skills/ is read without it");
 

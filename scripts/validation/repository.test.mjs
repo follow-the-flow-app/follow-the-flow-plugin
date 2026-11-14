@@ -116,10 +116,11 @@ test("a skill error is reported alongside a missing file", async () => {
   assert.ok(errors.some((e) => e.includes("skills/broken/SKILL.md")), errors.join("\n"));
 });
 
-test("a skill error is reported by validateRepository", async () => {
+test("a skill error is reported by validateRepository, once", async () => {
   const errors = await errorsOf((dir) => mkdir(path.join(dir, "skills", "broken"), { recursive: true }));
-  assert.ok(
-    errors.some((e) => e.includes("skills/broken/SKILL.md")),
+  assert.equal(
+    errors.filter((e) => e.includes("skills/broken/SKILL.md")).length,
+    1,
     errors.join("\n"),
   );
 });
