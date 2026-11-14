@@ -164,17 +164,29 @@ test("plain values YAML reads as text are accepted", async () => {
     "trailing whitespace",
   );
   assert.deepEqual(
+    await errorsOf({ "skills/run-x/SKILL.md": skill('name: run-x\t\ndescription: "x"\t') }),
+    [],
+    "trailing tab",
+  );
+  assert.deepEqual(
     await errorsOf({ "skills/run-x/SKILL.md": skill('# comment\nname: run-x\n\n   \ndescription: "x"') }),
     [],
     "blank and comment lines",
+  );
+  assert.deepEqual(
+    await errorsOf({ "skills/run-x/SKILL.md": skill('name: run-x\n\t\n\t# c\n  # d\ndescription: "x"') }),
+    [],
+    "a tab-only line and indented comments",
   );
 });
 
 test("a no-break space is part of the value, as YAML reads it", async () => {
   // String#trim would read "run-x" and pass, while a client reads a name unlike its directory.
-  const errors = await errorsOf({ "skills/run-x/SKILL.md": skill('name: \u00a0run-x\ndescription: "x"') });
-  assert.equal(errors.length, 1, errors.join("\n"));
-  assert.match(errors[0], /name/);
+  for (const name of ["\u00a0run-x", "run-x\u00a0"]) {
+    const errors = await errorsOf({ "skills/run-x/SKILL.md": skill(`name: ${name}\ndescription: "x"`) });
+    assert.equal(errors.length, 1, `${JSON.stringify(name)}\n${errors.join("\n")}`);
+    assert.match(errors[0], /name/);
+  }
 });
 
 test("a symlinked file directly under skills is an error too", async () => {
