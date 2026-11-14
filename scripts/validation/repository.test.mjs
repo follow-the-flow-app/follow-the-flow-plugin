@@ -298,7 +298,7 @@ for (const url of BAD_ENDPOINTS) {
   });
 }
 
-test("the missing owner email is a warning, not an error (I spec §9.2)", async () => {
+test("the missing owner email is a warning, not an error (I spec §9.3)", async () => {
   const { errors, warnings } = await validateRepository(repoRoot);
   assert.deepEqual(errors, []);
   assert.ok(

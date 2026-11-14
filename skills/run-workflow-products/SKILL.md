@@ -33,13 +33,13 @@ If the start call times out or the connection drops, call `startWorkflowRun` aga
 
 ### When start is refused
 
-| Refusal | What to do |
-| --- | --- |
-| `preview_stale` | The data behind the preview changed. Prepare again with the same input; never retry the old `prepareId`. If confirmation is required, show the new preview and ask again: the earlier yes was for the old preview. |
-| `prepare_expired` | The prepare is past its `expiresAt` (24 hours after it was made). Same as `preview_stale`. |
+| Refusal                                                               | What to do                                                                                                                                                                                                                                                       |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `preview_stale`                                                       | The data behind the preview changed. Prepare again with the same input; never retry the old `prepareId`. If confirmation is required, show the new preview and ask again: the earlier yes was for the old preview.                                               |
+| `prepare_expired`                                                     | The prepare is past its `expiresAt` (24 hours after it was made). Same as `preview_stale`.                                                                                                                                                                       |
 | `invalid_input`, `conflict`, `rule_violation`, `idempotency_mismatch` | When the result has `structuredContent`, its `details` list each `field` (a JSON Pointer into the input) and the `reason` (`missing`, `unexpected`, `wrong_type` or `invalid`). Tell the person which field and why, fix the input with them, and prepare again. |
-| `forbidden` | The person may not do this. Tell them; do not look for another way to do it. |
-| `not_found` | The WP, the `prepareId` or the run does not exist for this person. Tell them. |
+| `forbidden`                                                           | The person may not do this. Tell them; do not look for another way to do it.                                                                                                                                                                                     |
+| `not_found`                                                           | The WP, the `prepareId` or the run does not exist for this person. Tell them.                                                                                                                                                                                    |
 
 If `prepareWorkflowRun` itself is refused, handle the refusal as this table says.
 

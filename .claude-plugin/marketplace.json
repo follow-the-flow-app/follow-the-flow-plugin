@@ -8,7 +8,7 @@
       "name": "follow-the-flow",
       "displayName": "Follow The Flow",
       "description": "Work with Follow The Flow from your AI agent. Everything it does is authorized by Follow The Flow with your existing permissions.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": { "name": "Follow The Flow" },
       "source": "./",
       "category": "productivity",

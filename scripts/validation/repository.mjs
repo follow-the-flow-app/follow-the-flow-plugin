@@ -180,7 +180,7 @@ export async function validateRepository(root) {
     });
   }
   if (!market.owner?.email)
-    warnings.push(".claude-plugin/marketplace.json owner has no email yet (I spec §9.2)");
+    warnings.push(".claude-plugin/marketplace.json owner has no email yet (I spec §9.3)");
 
   if (server.name !== REGISTRY_NAME)
     errors.push(`server.json name ${server.name} must be ${REGISTRY_NAME}`);
