@@ -11,7 +11,7 @@ const DOUBLE_QUOTED = /^"(?:[^"\\]|\\.)*"$/;
 const SINGLE_QUOTED = /^'(?:[^']|'')*'$/;
 /**
  * A character refused in any frontmatter line, quoted or not. Outside quotes YAML 1.2.2 itself
- * refuses anything not c-printable (a raw C0 control but tab, DEL, C1 controls but NEL, surrogates,
+ * refuses anything not c-printable (a C0 control but tab, LF and CR, DEL, C1 controls but NEL, surrogates,
  * U+FFFE, U+FFFF) and a byte order mark past the start of a document; inside quotes it refuses a raw
  * C0 control but tab, and must accept every other character, a byte order mark included (§5.1,
  * §5.2). A lone carriage return is a line break to it. YAML 1.2 also reads NEL, U+2028 and U+2029

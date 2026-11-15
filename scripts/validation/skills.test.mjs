@@ -271,8 +271,8 @@ test("quoted values are read as YAML reads them", () => {
 });
 
 test("a character this validator does not accept is an error, plain, quoted or in a comment", async () => {
-  // Outside quotes YAML 1.2.2 refuses each of these but NEL, U+2028 and U+2029 (line breaks to YAML
-  // 1.1); inside quotes it refuses only the raw C0 controls. The validator refuses all of them
+  // Outside quotes YAML 1.2.2 refuses each of these but CR (a line break to it), NEL, U+2028 and
+  // U+2029 (line breaks to YAML 1.1); inside quotes it refuses only the raw C0 controls but CR. The validator refuses all of them
   // everywhere (see REFUSED_CHARACTER). The error names the character and the line.
   for (const [value, code] of [
     ["a\u0000b", "0000"],
