@@ -270,11 +270,10 @@ test("quoted values are read as YAML reads them", () => {
   });
 });
 
-test("a character YAML does not allow is an error, plain, quoted or in a comment", async () => {
-  // YAML 1.2.2 §5.1-5.2 refuses a raw C0 control (but tab), a lone carriage return and a BOM past the
-  // start anywhere, and DEL, C1 controls and U+FFFE outside quotes. The validator also refuses those
-  // inside quotes, and NEL, U+2028 and U+2029 (line breaks to YAML 1.1), since the client's parser
-  // is not known. The error names the character and the line.
+test("a character this validator does not accept is an error, plain, quoted or in a comment", async () => {
+  // Outside quotes YAML 1.2.2 refuses each of these but NEL, U+2028 and U+2029 (line breaks to YAML
+  // 1.1); inside quotes it refuses only the raw C0 controls. The validator refuses all of them
+  // everywhere (see REFUSED_CHARACTER). The error names the character and the line.
   for (const [value, code] of [
     ["a\u0000b", "0000"],
     ["a\u0007b", "0007"],
@@ -292,6 +291,7 @@ test("a character YAML does not allow is an error, plain, quoted or in a comment
     ["a\u2029b", "2029"],
     ["a\ufeffb", "FEFF"],
     ["a\ufffeb", "FFFE"],
+    ["a\uffffb", "FFFF"],
     ["'a\u0001b'", "0001"],
     ['"a\u007fb"', "007F"],
   ]) {
@@ -299,16 +299,16 @@ test("a character YAML does not allow is an error, plain, quoted or in a comment
     const errors = await errorsOf({ "skills/run-x/SKILL.md": skill(`name: run-x\n${line}`) });
     assert.equal(errors.length, 1, `${JSON.stringify(value)}\n${errors.join("\n")}`);
     assert.ok(
-      errors[0].endsWith(`has a character YAML does not allow (U+${code}) in its frontmatter: ${JSON.stringify(line)}`),
+      errors[0].endsWith(`has a character this validator does not accept (U+${code}) in its frontmatter: ${JSON.stringify(line)}`),
       errors[0],
     );
   }
   const errors = await errorsOf({ "skills/run-x/SKILL.md": skill("name: run-x\n# a\u0000b\ndescription: x") });
   assert.equal(errors.length, 1, errors.join("\n"));
-  assert.match(errors[0], /character YAML does not allow \(U\+0000\)/);
+  assert.match(errors[0], /character this validator does not accept \(U\+0000\)/);
 });
 
-test("a lone surrogate is a character YAML does not allow", () => {
+test("a lone surrogate is a character this validator does not accept", () => {
   // A file cannot carry one past the strict UTF-8 read; parseFrontmatter is exported, so pin it here.
   assert.match(parseFrontmatter(skill("name: run-x\ndescription: a\ud800b")).error, /\(U\+D800\)/);
 });
@@ -317,6 +317,27 @@ test("the character check holds across calls", () => {
   // A global regex would keep lastIndex from the first call and miss the character in the second.
   assert.match(parseFrontmatter(skill("name: run-x\ndescription: aaaaaaaaaaaaaaaaaaaa\u0001")).error, /U\+0001/);
   assert.match(parseFrontmatter(skill("x: \u0001")).error, /U\+0001/);
+});
+
+test("every character up to U+FFFF is refused exactly when the rule says so", () => {
+  // The rule in skills.mjs's comment, written out apart from its regex, so a hole inside a range
+  // shows up and not only at its ends. Line feed is left out: it splits the line.
+  const refused = (code) =>
+    (code < 0x20 && code !== 0x09) ||
+    (code >= 0x7f && code <= 0x9f) ||
+    code === 0x2028 ||
+    code === 0x2029 ||
+    (code >= 0xd800 && code <= 0xdfff) ||
+    code === 0xfeff ||
+    code === 0xfffe ||
+    code === 0xffff;
+  const wrong = [];
+  for (let code = 0; code <= 0xffff; code++) {
+    if (code === 0x0a) continue;
+    const { error } = parseFrontmatter(skill(`name: run-x\ndescription: a${String.fromCharCode(code)}b`));
+    if (refused(code) !== Boolean(error?.includes("this validator does not accept"))) wrong.push(code.toString(16));
+  }
+  assert.deepEqual(wrong, []);
 });
 
 test("printable characters and escapes are read as YAML reads them", () => {
@@ -339,10 +360,13 @@ test("SKILL.md that is not valid UTF-8 is an error", async () => {
   assert.match(errors[0], /is not valid UTF-8/);
 });
 
-test("a byte order mark before the opening fence is an error that names it", async () => {
-  const errors = await errorsOf({ "skills/run-x/SKILL.md": `\ufeff${VALID}` });
-  assert.equal(errors.length, 1, errors.join("\n"));
-  assert.match(errors[0], /starts with a byte order mark \(U\+FEFF\)/);
+test("a byte order mark at the start is an error that names it", async () => {
+  for (const text of [`\ufeff${VALID}`, "\ufeff# Skill\n"]) {
+    const errors = await errorsOf({ "skills/run-x/SKILL.md": text });
+    assert.deepEqual(errors, [
+      "skills/run-x/SKILL.md starts with a byte order mark (U+FEFF); save it as UTF-8 without one",
+    ]);
+  }
 });
 
 test("a closing fence without an opening one is missing frontmatter", async () => {

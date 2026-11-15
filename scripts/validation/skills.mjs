@@ -10,15 +10,16 @@ const KEY_VALUE = /^([A-Za-z0-9_-]+):(?:[ \t]+(.*))?$/;
 const DOUBLE_QUOTED = /^"(?:[^"\\]|\\.)*"$/;
 const SINGLE_QUOTED = /^'(?:[^']|'')*'$/;
 /**
- * A character refused in any frontmatter line, quoted or not. YAML 1.2.2 refuses a raw C0 control
- * but tab, a lone carriage return (a line break to YAML) and a byte order mark past the start
- * anywhere, and anything else outside c-printable (DEL, C1 controls, surrogates, U+FFFE, U+FFFF)
- * outside quotes (§5.1, §5.2). Inside quotes this is stricter than YAML on purpose: §5.1 lets a
- * processor accept any non-C0 character there (js-yaml 3 and yaml 2 do), but which parser a client
- * uses is not known here, and no skill needs these characters. NEL, U+2028 and U+2029 are refused
- * as well: YAML 1.2 reads them as text, YAML 1.1 as line breaks (1.1 §5.4).
+ * A character refused in any frontmatter line, quoted or not. Outside quotes YAML 1.2.2 itself
+ * refuses anything not c-printable (a raw C0 control but tab, DEL, C1 controls but NEL, surrogates,
+ * U+FFFE, U+FFFF) and a byte order mark past the start of a document; inside quotes it refuses a raw
+ * C0 control but tab, and must accept every other character, a byte order mark included (§5.1,
+ * §5.2). A lone carriage return is a line break to it. YAML 1.2 also reads NEL, U+2028 and U+2029
+ * as text, where YAML 1.1 reads them as line breaks (1.1 §5.4). Which YAML a client reads is not
+ * known here and no skill needs these characters, so all of them are refused everywhere: stricter
+ * than YAML 1.2 on purpose, which is why the error says "this validator", not YAML.
  */
-const NOT_YAML_CHARACTER = /[^\t\x20-\x7E\xA0-\u2027\u202A-\uD7FF\uE000-\uFEFE\uFF00-\uFFFD\u{10000}-\u{10FFFF}]/u;
+const REFUSED_CHARACTER = /[^\t\x20-\x7E\xA0-\u2027\u202A-\uD7FF\uE000-\uFEFE\uFF00-\uFFFD\u{10000}-\u{10FFFF}]/u;
 /** A plain scalar YAML reads as null, a boolean or a number, not as a string (YAML 1.2 core schema). */
 const NOT_A_STRING =
   /^(?:~|null|Null|NULL|true|True|TRUE|false|False|FALSE|[-+]?(?:\.[0-9]+|[0-9]+(?:\.[0-9]*)?)(?:[eE][-+]?[0-9]+)?|0o[0-7]+|0x[0-9a-fA-F]+|[-+]?\.(?:inf|Inf|INF)|\.(?:nan|NaN|NAN))$/;
@@ -66,10 +67,10 @@ export function parseFrontmatter(text) {
   if (end < 0) return { error: "has unterminated YAML frontmatter" };
   const fields = {};
   for (const line of lines.slice(1, end)) {
-    const character = NOT_YAML_CHARACTER.exec(line)?.[0];
+    const character = REFUSED_CHARACTER.exec(line)?.[0];
     if (character !== undefined) {
       const code = character.codePointAt(0).toString(16).toUpperCase().padStart(4, "0");
-      return { error: `has a character YAML does not allow (U+${code}) in its frontmatter: ${JSON.stringify(line)}` };
+      return { error: `has a character this validator does not accept (U+${code}) in its frontmatter: ${JSON.stringify(line)}` };
     }
     if (/^[ \t]*(?:#.*)?$/.test(line)) continue;
     const match = KEY_VALUE.exec(line);

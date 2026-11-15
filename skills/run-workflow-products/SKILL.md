@@ -56,8 +56,10 @@ Call `cancelWorkflowRun` with `{ workflowProduct, runId }`. Then act on what it 
 
 - **The run, with status `cancelled`.** Tell the person the run is cancelled. Cancelling a run that is already cancelled answers the same result again.
 - **`cancel_not_allowed`.** A run can be cancelled only before any step that sends something outside the firm or moves money has begun; after that the answer is `cancel_not_allowed`. The same answer comes for a run that has already finished (`completed`, `failed` or `denied`). So check the run with `getWorkflowRun`, then tell the person it is too late to cancel: what was actually sent or paid stays, and undoing it is a separate business action they start themselves, such as voiding the invoice or undoing the reconciliation match. Nothing rolls back on its own.
-- **No answer** (a timeout, a dropped connection, a server error, or 401 and you have signed in again). Call `cancelWorkflowRun` again with the same `runId`: cancelling twice answers the same. If it still does not answer, check the run with `getWorkflowRun` and tell the person its state; if that fails too, say the state is unknown and give the `runId`.
+- **No answer** (a timeout, a dropped connection, a server error, or 401 and you have signed in again). Call `cancelWorkflowRun` again with the same `runId`: cancelling twice answers the same. If it still does not answer, or signing in again fails, check the run with `getWorkflowRun` and tell the person its state.
 - **Another refusal** (`forbidden`, `not_found` or any other). Tell the person the refusal, check the run with `getWorkflowRun`, and tell them its state. Never prepare from a cancel: preparing is the first step of a new run, the opposite of what they asked.
+
+Whenever you cannot learn the run's state after a cancel (`getWorkflowRun` fails or is refused too), say the cancel is not confirmed and the state is unknown, and give the `runId`. Never say a run is cancelled unless `cancelWorkflowRun` answered `cancelled`.
 
 ## Why you still ask when the server checks
 
