@@ -13,7 +13,7 @@ const SINGLE_QUOTED = /^'(?:[^']|'')*'$/;
  * A character refused in any frontmatter line, quoted or not. Outside quotes YAML 1.2.2 itself
  * refuses anything not c-printable (a C0 control but tab, LF and CR, DEL, C1 controls but NEL, surrogates,
  * U+FFFE, U+FFFF) and a byte order mark past the start of a document; inside quotes it refuses a raw
- * C0 control but tab, and must accept every other character, a byte order mark included (§5.1,
+ * C0 control but tab, LF and CR, and must accept every other character, a byte order mark included (§5.1,
  * §5.2). A lone carriage return is a line break to it. YAML 1.2 also reads NEL, U+2028 and U+2029
  * as text, where YAML 1.1 reads them as line breaks (1.1 §5.4). Which YAML a client reads is not
  * known here and no skill needs these characters, so all of them are refused everywhere: stricter
