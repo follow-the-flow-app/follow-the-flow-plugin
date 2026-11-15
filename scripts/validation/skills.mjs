@@ -10,10 +10,15 @@ const KEY_VALUE = /^([A-Za-z0-9_-]+):(?:[ \t]+(.*))?$/;
 const DOUBLE_QUOTED = /^"(?:[^"\\]|\\.)*"$/;
 const SINGLE_QUOTED = /^'(?:[^']|'')*'$/;
 /**
- * A character YAML 1.2.2 does not allow in a line (§5.1, §5.2): anything outside c-printable, a
- * lone carriage return (a line break to YAML), and a byte order mark past the start of the stream.
+ * A character refused in any frontmatter line, quoted or not. YAML 1.2.2 refuses a raw C0 control
+ * but tab, a lone carriage return (a line break to YAML) and a byte order mark past the start
+ * anywhere, and anything else outside c-printable (DEL, C1 controls, surrogates, U+FFFE, U+FFFF)
+ * outside quotes (§5.1, §5.2). Inside quotes this is stricter than YAML on purpose: §5.1 lets a
+ * processor accept any non-C0 character there (js-yaml 3 and yaml 2 do), but which parser a client
+ * uses is not known here, and no skill needs these characters. NEL, U+2028 and U+2029 are refused
+ * as well: YAML 1.2 reads them as text, YAML 1.1 as line breaks (1.1 §5.4).
  */
-const NOT_YAML_CHARACTER = /[^\t\x20-\x7E\x85\xA0-\uD7FF\uE000-\uFEFE\uFF00-\uFFFD\u{10000}-\u{10FFFF}]/u;
+const NOT_YAML_CHARACTER = /[^\t\x20-\x7E\xA0-\u2027\u202A-\uD7FF\uE000-\uFEFE\uFF00-\uFFFD\u{10000}-\u{10FFFF}]/u;
 /** A plain scalar YAML reads as null, a boolean or a number, not as a string (YAML 1.2 core schema). */
 const NOT_A_STRING =
   /^(?:~|null|Null|NULL|true|True|TRUE|false|False|FALSE|[-+]?(?:\.[0-9]+|[0-9]+(?:\.[0-9]*)?)(?:[eE][-+]?[0-9]+)?|0o[0-7]+|0x[0-9a-fA-F]+|[-+]?\.(?:inf|Inf|INF)|\.(?:nan|NaN|NAN))$/;
@@ -53,6 +58,8 @@ function scalar(raw) {
  * differently cannot pass unnoticed.
  */
 export function parseFrontmatter(text) {
+  // YAML allows a leading byte order mark, but a reader that checks for --- first does not.
+  if (text.startsWith("\uFEFF")) return { error: "starts with a byte order mark (U+FEFF); save it as UTF-8 without one" };
   const lines = text.replaceAll("\r\n", "\n").split("\n");
   if (lines[0] !== "---") return { error: "is missing YAML frontmatter" };
   const end = lines.findIndex((line, index) => index > 0 && /^---[ \t]*$/.test(line));
@@ -122,10 +129,11 @@ export async function validateSkills(root) {
     let text;
     try {
       // Fatal: a lenient read turns a byte that is not UTF-8 into U+FFFD, and the file would pass.
-      // ignoreBOM keeps a leading byte order mark, so it is still reported as missing frontmatter.
+      // ignoreBOM keeps a leading byte order mark, so parseFrontmatter can name it.
       text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
-    } catch {
-      errors.push(`${label} is not valid UTF-8`);
+    } catch (error) {
+      // decode throws a TypeError for bytes that are not UTF-8; anything else is not about the file.
+      errors.push(error instanceof TypeError ? `${label} is not valid UTF-8` : `cannot decode ${label}: ${error.message}`);
       continue;
     }
     const { fields, error } = parseFrontmatter(text);

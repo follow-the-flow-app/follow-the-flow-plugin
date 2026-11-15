@@ -271,32 +271,60 @@ test("quoted values are read as YAML reads them", () => {
 });
 
 test("a character YAML does not allow is an error, plain, quoted or in a comment", async () => {
-  // YAML 1.2.2 §5.1: a raw C0 or C1 control (but tab and NEL), DEL, a BOM past the start, a lone
-  // carriage return (a line break to YAML) or U+FFFE is not printable, so a client's parser refuses
-  // the file while a reader that takes it as text would pass it.
-  for (const frontmatter of [
-    "name: run-x\ndescription: a\u0000b",
-    "name: run-x\ndescription: a\u0007b",
-    "name: run-x\ndescription: a\u007fb",
-    "name: run-x\ndescription: a\u0080b",
-    "name: run-x\ndescription: a\ufeffb",
-    "name: run-x\ndescription: a\ufffeb",
-    "name: run-x\ndescription: a\rb",
-    "name: run-x\ndescription: 'a\u0001b'",
-    'name: run-x\ndescription: "a\u007fb"',
-    "name: run-x\n# a\u0000b\ndescription: x",
+  // YAML 1.2.2 §5.1-5.2 refuses a raw C0 control (but tab), a lone carriage return and a BOM past the
+  // start anywhere, and DEL, C1 controls and U+FFFE outside quotes. The validator also refuses those
+  // inside quotes, and NEL, U+2028 and U+2029 (line breaks to YAML 1.1), since the client's parser
+  // is not known. The error names the character and the line.
+  for (const [value, code] of [
+    ["a\u0000b", "0000"],
+    ["a\u0007b", "0007"],
+    ["a\u0008b", "0008"],
+    ["a\u000bb", "000B"],
+    ["a\u000cb", "000C"],
+    ["a\u001fb", "001F"],
+    ["a\rb", "000D"],
+    ["a\u007fb", "007F"],
+    ["a\u0080b", "0080"],
+    ["a\u0085b", "0085"],
+    ["a\u0086b", "0086"],
+    ["a\u009fb", "009F"],
+    ["a\u2028b", "2028"],
+    ["a\u2029b", "2029"],
+    ["a\ufeffb", "FEFF"],
+    ["a\ufffeb", "FFFE"],
+    ["'a\u0001b'", "0001"],
+    ['"a\u007fb"', "007F"],
   ]) {
-    const errors = await errorsOf({ "skills/run-x/SKILL.md": skill(frontmatter) });
-    assert.equal(errors.length, 1, `${JSON.stringify(frontmatter)}\n${errors.join("\n")}`);
-    assert.match(errors[0], /character YAML does not allow/);
+    const line = `description: ${value}`;
+    const errors = await errorsOf({ "skills/run-x/SKILL.md": skill(`name: run-x\n${line}`) });
+    assert.equal(errors.length, 1, `${JSON.stringify(value)}\n${errors.join("\n")}`);
+    assert.ok(
+      errors[0].endsWith(`has a character YAML does not allow (U+${code}) in its frontmatter: ${JSON.stringify(line)}`),
+      errors[0],
+    );
   }
+  const errors = await errorsOf({ "skills/run-x/SKILL.md": skill("name: run-x\n# a\u0000b\ndescription: x") });
+  assert.equal(errors.length, 1, errors.join("\n"));
+  assert.match(errors[0], /character YAML does not allow \(U\+0000\)/);
+});
+
+test("a lone surrogate is a character YAML does not allow", () => {
+  // A file cannot carry one past the strict UTF-8 read; parseFrontmatter is exported, so pin it here.
+  assert.match(parseFrontmatter(skill("name: run-x\ndescription: a\ud800b")).error, /\(U\+D800\)/);
+});
+
+test("the character check holds across calls", () => {
+  // A global regex would keep lastIndex from the first call and miss the character in the second.
+  assert.match(parseFrontmatter(skill("name: run-x\ndescription: aaaaaaaaaaaaaaaaaaaa\u0001")).error, /U\+0001/);
+  assert.match(parseFrontmatter(skill("x: \u0001")).error, /U\+0001/);
 });
 
 test("printable characters and escapes are read as YAML reads them", () => {
-  // A tab inside a plain value, NEL (printable since YAML 1.2), a no-break space, a character past
-  // U+FFFF; an escaped control is a written escape, not a raw character.
-  assert.deepEqual(parseFrontmatter(skill('name: run-x\ndescription: a\tb\u0085c\u00a0d\u{1f600}')), {
-    fields: { name: "run-x", description: "a\tb\u0085c\u00a0d\u{1f600}" },
+  // The ends of each range the validator accepts, a tab inside a plain value, and a valid U+FFFD;
+  // an escaped control is a written escape, not a raw character.
+  const accepted = "a b~c\u00a0d\u2027e\u202af\ud7ffg\ue000h\ufefei\uff00j\ufffdk\u{10000}l\u{10ffff}m\tn";
+  assert.deepEqual(parseFrontmatter(skill(`name: run-x\ndescription: ${accepted}`)), {
+    fields: { name: "run-x", description: accepted },
   });
   assert.deepEqual(parseFrontmatter(skill('name: run-x\ndescription: "a\\u0000b"')), {
     fields: { name: "run-x", description: "a\u0000b" },
@@ -311,10 +339,10 @@ test("SKILL.md that is not valid UTF-8 is an error", async () => {
   assert.match(errors[0], /is not valid UTF-8/);
 });
 
-test("a byte order mark before the opening fence is still missing frontmatter", async () => {
+test("a byte order mark before the opening fence is an error that names it", async () => {
   const errors = await errorsOf({ "skills/run-x/SKILL.md": `\ufeff${VALID}` });
   assert.equal(errors.length, 1, errors.join("\n"));
-  assert.match(errors[0], /is missing YAML frontmatter/);
+  assert.match(errors[0], /starts with a byte order mark \(U\+FEFF\)/);
 });
 
 test("a closing fence without an opening one is missing frontmatter", async () => {
