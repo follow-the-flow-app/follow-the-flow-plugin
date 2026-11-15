@@ -2,9 +2,9 @@
 
 Work with [Follow The Flow](https://follow-the-flow.app) from your AI agent. Everything the agent does is authenticated with OAuth 2.1 and authorized by Follow The Flow with your existing permissions; the plugin keeps no permissions of its own.
 
-This repository is the plugin and its marketplace, part of Follow The Flow's Agent Integration work. Today the plugin connects your agent to the Follow The Flow MCP server, whose tools are listed below; the server itself is not here.
+This repository is the plugin and its marketplace, part of Follow The Flow's Agent Integration work. Today the plugin connects your agent to the Follow The Flow MCP server, whose tools are listed below, and adds one skill; the server itself is not here.
 
-> The endpoint is the development environment, `https://mcp-dev.follow-the-flow.app/v1/mcp`, until production opens. You need an invitation to an organization to sign in. The tools answer mock data for now (`"mock": true`).
+> The endpoint is the development environment, `https://mcp-dev.follow-the-flow.app/v1/mcp`, until production opens. You need an invitation to an organization to sign in. Until the workflow backend is connected there, the development environment answers mock data (`"mock": true`).
 
 ## Install
 
@@ -19,15 +19,25 @@ This repository is the plugin and its marketplace, part of Follow The Flow's Age
 
 ## Tools
 
-| Tool                   | What it answers                                                                                              |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `getUserInfo`          | Your organization and the user this agent acts for                                                           |
-| `listWorkflowProducts` | The workflow products you can use now. For discovery only: every operation is still authorized by the server |
-| `getWorkflowProduct`   | What one workflow product does and what it needs to run                                                      |
-| `startWorkflowRun`     | Starts a run of a workflow product with the given input                                                      |
-| `getWorkflowRun`       | The state and result of one run                                                                              |
+| Tool                   | What it answers                                                                                                           |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `getUserInfo`          | Your organization and the user this agent acts for                                                                        |
+| `listWorkflowProducts` | The workflow products you can use now. For discovery only: every operation is still authorized by the server              |
+| `getWorkflowProduct`   | What one workflow product does and what it needs to run                                                                   |
+| `prepareWorkflowRun`   | Prepares a run from the given input: a `prepareId`, a preview, whether a person must confirm it, and when it expires      |
+| `startWorkflowRun`     | Starts the run a prepare prepared. The same `prepareId` always answers the same run                                       |
+| `getWorkflowRun`       | The state and result of one run                                                                                           |
+| `cancelWorkflowRun`    | Cancels a run before anything is sent outside the firm or any money moves; a run already cancelled answers the same again |
 
-All tools except `startWorkflowRun` only read.
+`getUserInfo`, `listWorkflowProducts`, `getWorkflowProduct` and `getWorkflowRun` only read. `prepareWorkflowRun`, `startWorkflowRun` and `cancelWorkflowRun` do not.
+
+## Skills
+
+| Skill                   | What it does                                                                                                                                                                                                                    |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `run-workflow-products` | Prepares a run, shows you the preview and waits for your yes before starting any workflow product that requires confirmation (issuing and sending bills, writing off receivables), and prepares again when a preview goes stale |
+
+Asking you first is the plugin's behaviour, not a security check: the server authorizes every start again and refuses a preview that has expired or whose data changed, whether or not the agent asked.
 
 ## Packaging
 
@@ -35,6 +45,7 @@ All tools except `startWorkflowRun` only read.
 | ------------------------------------------------------ | ----------------------------------------------------------------------------------- |
 | [Agent Plugins v1](https://agent-plugins.org/) (Codex) | `plugin.json`, `mcp.json`                                                           |
 | Claude Code plugin and marketplace                     | `.claude-plugin/plugin.json` (MCP server inline), `.claude-plugin/marketplace.json` |
+| Agent Skills, read by both formats                     | `skills/<name>/SKILL.md`; no manifest names the folder, both formats read `skills/` |
 | MCP registry                                           | `server.json`                                                                       |
 
 `npm test` and `npm run validate` check every manifest. `npm run check:endpoint` runs `validate`, then checks that the endpoint the manifests agree on is the resource the live server names in its public RFC 9728 metadata (no token needed). It shows the manifests agree with the server they point at, not that they point at the right environment. CI runs all three on every push and pull request, and daily, because the server can change without this repository changing. GitHub turns the daily run off after 60 days without activity in this repository; turn it back on under **Actions** → **validate**.

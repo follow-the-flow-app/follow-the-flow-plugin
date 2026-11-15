@@ -22,6 +22,7 @@ async function fixture(edit) {
     "CONTRIBUTING.md",
     "CODE_OF_CONDUCT.md",
     "CODEOWNERS",
+    "skills",
   ]) {
     await cp(path.join(repoRoot, file), path.join(dir, file), { recursive: true });
   }
@@ -76,6 +77,50 @@ test(".claude-plugin/plugin.json must not set a version (I spec I-6)", async () 
   );
   assert.ok(
     errors.some((e) => e.includes(".claude-plugin/plugin.json")),
+    errors.join("\n"),
+  );
+});
+
+test(".claude-plugin/plugin.json must not set skills (I spec I-6, RD-168)", async () => {
+  const errors = await errorsOf((dir) =>
+    rewrite(dir, ".claude-plugin/plugin.json", (j) => {
+      j.skills = "./skills/";
+    }),
+  );
+  assert.ok(
+    errors.some((e) => e.includes(".claude-plugin/plugin.json") && e.includes("skills")),
+    errors.join("\n"),
+  );
+});
+
+test(".claude-plugin/plugin.json must not set skills, even to an empty value", async () => {
+  for (const value of ["", null, false]) {
+    const errors = await errorsOf((dir) =>
+      rewrite(dir, ".claude-plugin/plugin.json", (j) => {
+        j.skills = value;
+      }),
+    );
+    assert.ok(
+      errors.some((e) => e.includes("must not set skills")),
+      `${JSON.stringify(value)}\n${errors.join("\n")}`,
+    );
+  }
+});
+
+test("a skill error is reported alongside a missing file", async () => {
+  const errors = await errorsOf(async (dir) => {
+    await rm(path.join(dir, "server.json"));
+    await mkdir(path.join(dir, "skills", "broken"), { recursive: true });
+  });
+  assert.ok(errors.some((e) => e.includes("server.json")), errors.join("\n"));
+  assert.ok(errors.some((e) => e.includes("skills/broken/SKILL.md")), errors.join("\n"));
+});
+
+test("a skill error is reported by validateRepository, once", async () => {
+  const errors = await errorsOf((dir) => mkdir(path.join(dir, "skills", "broken"), { recursive: true }));
+  assert.equal(
+    errors.filter((e) => e.includes("skills/broken/SKILL.md")).length,
+    1,
     errors.join("\n"),
   );
 });
@@ -277,7 +322,7 @@ for (const url of BAD_ENDPOINTS) {
   });
 }
 
-test("the missing owner email is a warning, not an error (I spec §9.2)", async () => {
+test("the missing owner email is a warning, not an error (I spec §9.3)", async () => {
   const { errors, warnings } = await validateRepository(repoRoot);
   assert.deepEqual(errors, []);
   assert.ok(
