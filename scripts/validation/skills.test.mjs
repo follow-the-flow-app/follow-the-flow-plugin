@@ -270,6 +270,60 @@ test("quoted values are read as YAML reads them", () => {
   });
 });
 
+test("a character YAML does not allow is an error, plain, quoted or in a comment", async () => {
+  // YAML 1.2.2 §5.1: a raw C0 or C1 control (but tab and NEL), DEL, a BOM past the start, a lone
+  // carriage return (a line break to YAML) or U+FFFE is not printable, so a client's parser refuses
+  // the file while a reader that takes it as text would pass it.
+  for (const frontmatter of [
+    "name: run-x\ndescription: a\u0000b",
+    "name: run-x\ndescription: a\u0007b",
+    "name: run-x\ndescription: a\u007fb",
+    "name: run-x\ndescription: a\u0080b",
+    "name: run-x\ndescription: a\ufeffb",
+    "name: run-x\ndescription: a\ufffeb",
+    "name: run-x\ndescription: a\rb",
+    "name: run-x\ndescription: 'a\u0001b'",
+    'name: run-x\ndescription: "a\u007fb"',
+    "name: run-x\n# a\u0000b\ndescription: x",
+  ]) {
+    const errors = await errorsOf({ "skills/run-x/SKILL.md": skill(frontmatter) });
+    assert.equal(errors.length, 1, `${JSON.stringify(frontmatter)}\n${errors.join("\n")}`);
+    assert.match(errors[0], /character YAML does not allow/);
+  }
+});
+
+test("printable characters and escapes are read as YAML reads them", () => {
+  // A tab inside a plain value, NEL (printable since YAML 1.2), a no-break space, a character past
+  // U+FFFF; an escaped control is a written escape, not a raw character.
+  assert.deepEqual(parseFrontmatter(skill('name: run-x\ndescription: a\tb\u0085c\u00a0d\u{1f600}')), {
+    fields: { name: "run-x", description: "a\tb\u0085c\u00a0d\u{1f600}" },
+  });
+  assert.deepEqual(parseFrontmatter(skill('name: run-x\ndescription: "a\\u0000b"')), {
+    fields: { name: "run-x", description: "a\u0000b" },
+  });
+});
+
+test("SKILL.md that is not valid UTF-8 is an error", async () => {
+  // Read leniently, the byte 0xFF would become U+FFFD and pass.
+  const bytes = Buffer.concat([Buffer.from("---\nname: run-x\ndescription: a"), Buffer.from([0xff]), Buffer.from("b\n---\n")]);
+  const errors = await errorsOf({ "skills/run-x/SKILL.md": bytes });
+  assert.equal(errors.length, 1, errors.join("\n"));
+  assert.match(errors[0], /is not valid UTF-8/);
+});
+
+test("a byte order mark before the opening fence is still missing frontmatter", async () => {
+  const errors = await errorsOf({ "skills/run-x/SKILL.md": `\ufeff${VALID}` });
+  assert.equal(errors.length, 1, errors.join("\n"));
+  assert.match(errors[0], /is missing YAML frontmatter/);
+});
+
+test("a closing fence without an opening one is missing frontmatter", async () => {
+  // The fields below the first line are valid, so only the opening-fence check can refuse this.
+  const errors = await errorsOf({ "skills/run-x/SKILL.md": "# Skill\nname: run-x\ndescription: x\n---\n" });
+  assert.equal(errors.length, 1, errors.join("\n"));
+  assert.match(errors[0], /is missing YAML frontmatter/);
+});
+
 test("CRLF line endings are accepted", async () => {
   assert.deepEqual(await errorsOf({ "skills/run-x/SKILL.md": VALID.replaceAll("\n", "\r\n") }), []);
 });

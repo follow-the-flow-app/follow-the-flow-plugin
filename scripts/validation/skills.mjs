@@ -9,6 +9,11 @@ const DESCRIPTION_MAX = 1024;
 const KEY_VALUE = /^([A-Za-z0-9_-]+):(?:[ \t]+(.*))?$/;
 const DOUBLE_QUOTED = /^"(?:[^"\\]|\\.)*"$/;
 const SINGLE_QUOTED = /^'(?:[^']|'')*'$/;
+/**
+ * A character YAML 1.2.2 does not allow in a line (§5.1, §5.2): anything outside c-printable, a
+ * lone carriage return (a line break to YAML), and a byte order mark past the start of the stream.
+ */
+const NOT_YAML_CHARACTER = /[^\t\x20-\x7E\x85\xA0-\uD7FF\uE000-\uFEFE\uFF00-\uFFFD\u{10000}-\u{10FFFF}]/u;
 /** A plain scalar YAML reads as null, a boolean or a number, not as a string (YAML 1.2 core schema). */
 const NOT_A_STRING =
   /^(?:~|null|Null|NULL|true|True|TRUE|false|False|FALSE|[-+]?(?:\.[0-9]+|[0-9]+(?:\.[0-9]*)?)(?:[eE][-+]?[0-9]+)?|0o[0-7]+|0x[0-9a-fA-F]+|[-+]?\.(?:inf|Inf|INF)|\.(?:nan|NaN|NAN))$/;
@@ -54,6 +59,11 @@ export function parseFrontmatter(text) {
   if (end < 0) return { error: "has unterminated YAML frontmatter" };
   const fields = {};
   for (const line of lines.slice(1, end)) {
+    const character = NOT_YAML_CHARACTER.exec(line)?.[0];
+    if (character !== undefined) {
+      const code = character.codePointAt(0).toString(16).toUpperCase().padStart(4, "0");
+      return { error: `has a character YAML does not allow (U+${code}) in its frontmatter: ${JSON.stringify(line)}` };
+    }
     if (/^[ \t]*(?:#.*)?$/.test(line)) continue;
     const match = KEY_VALUE.exec(line);
     const value = match?.[2] === undefined ? undefined : scalar(match[2]);
@@ -102,11 +112,20 @@ export async function validateSkills(root) {
       errors.push(error.code === "ENOENT" ? `missing ${label}` : `cannot check ${label}: ${error.message}`);
       continue;
     }
-    let text;
+    let bytes;
     try {
-      text = await readFile(file, "utf8");
+      bytes = await readFile(file);
     } catch (error) {
       errors.push(`cannot read ${label}: ${error.message}`);
+      continue;
+    }
+    let text;
+    try {
+      // Fatal: a lenient read turns a byte that is not UTF-8 into U+FFFD, and the file would pass.
+      // ignoreBOM keeps a leading byte order mark, so it is still reported as missing frontmatter.
+      text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
+    } catch {
+      errors.push(`${label} is not valid UTF-8`);
       continue;
     }
     const { fields, error } = parseFrontmatter(text);

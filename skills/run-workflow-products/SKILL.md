@@ -19,10 +19,10 @@ A situation may involve more than one WP. For example, "the engagement is done, 
 
 1. **Prepare.** Call `prepareWorkflowRun` with `{ workflowProduct, input }`. It answers `prepareId`, `preview`, `requiresConfirmation` and `expiresAt`. Preparing changes nothing yet.
 2. **Decide whether to ask.**
-   - Only when `requiresConfirmation` is exactly `false` may you start without asking (for example WP-03, which only records internal tasks and reminders).
-   - When it is `true`, missing, or anything else, you must ask first. WP-04 (issuing and sending bills) and WP-05 (writing off receivables) are `true`: they send something outside the firm or move money.
-3. **Show the preview.** Show the person the whole `preview` the prepare answered, not a summary that drops lines: for WP-04 the bills, recipients and amounts; for WP-05 the matches and differences. Say in one sentence what starting will do. Then ask whether to go ahead.
-4. **Wait for a clear yes.** Start only after the person answers yes to this preview. Silence, an unclear answer, or a yes given before they saw this preview is not consent. A yes covers this `prepareId` only.
+   - Only when `requiresConfirmation` is exactly `false` may you start without asking (for example WP-03, which only records internal tasks and reminders): skip steps 3 and 4 and go to step 5.
+   - When it is `true`, missing, or anything else, you must ask first: do steps 3 and 4 before step 5. WP-04 (issuing and sending bills) and WP-05 (writing off receivables) are `true`: they send something outside the firm or move money.
+3. **Show the preview** (only when you must ask). Show the person the whole `preview` the prepare answered, not a summary that drops lines: for WP-04 the bills, recipients and amounts; for WP-05 the matches and differences. Say in one sentence what starting will do. Then ask whether to go ahead.
+4. **Wait for a clear yes** (only when you must ask). Start only after the person answers yes to this preview. Silence, an unclear answer, or a yes given before they saw this preview is not consent. A yes covers this `prepareId` only.
 5. **Start.** Call `startWorkflowRun` with `{ workflowProduct, prepareId }`. It answers the run.
 6. **Follow it.** Use `getWorkflowRun` and tell the person the run's state. A run can wait a long time, for an approval or a date: if it is waiting or still running after a few checks, tell them its state, what it waits for when the run says, and its `runId`, and that it goes on by itself. If `getWorkflowRun` fails, say the state is unknown and give the `runId`. When it ends `failed` or `denied`, say so plainly with whatever reason the run gives, and that the steps it finished before stopping are kept: something may already have been sent or recorded, so do not run it again before checking what it did.
 
@@ -30,13 +30,15 @@ If the person changes the input after seeing the preview, prepare again and show
 
 ### When start does not answer
 
-The run may already have started even when start did not answer with it: the server can replace a successful answer with an error. So whenever start answers with neither a run nor one of the refusals below — it times out, the connection drops, it answers a server error (HTTP 500), or it answers 401 and you have signed in again — call `startWorkflowRun` again with **the same** `prepareId`. The same `prepareId` always answers the same run, so retrying cannot start a second one. Retry up to three times. If signing in again fails, stop retrying and go to the next paragraph.
+The run may already have started even when start did not answer with it: the server can replace a successful answer with an error. So whenever start answers with neither a run nor one of the refusals below — it times out, the connection drops, it answers a server error (HTTP 500), or it answers 401 and you have signed in again — call `startWorkflowRun` again with **the same** `prepareId`. The same `prepareId` always answers the same run, so retrying cannot start a second one. Retry up to three times. If signing in again fails, stop retrying and go to the last paragraph of this section.
 
-On such a retry, a `preview_stale`, `prepare_expired`, `not_found` or `forbidden` answer does not prove that no run started: the first start may still be in progress, or you may now be signed in as someone else. Treat it like no answer.
+On such a retry, any refusal — `preview_stale`, `prepare_expired`, `not_found`, `forbidden`, `invalid_input`, `conflict`, `rule_violation`, `idempotency_mismatch` or any other — does not prove that no run started: the first start may still be in progress, or you may now be signed in as someone else. Treat it like no answer, keep the same `prepareId`, and do not follow the refusal table below: it would have you prepare again.
 
 If you still have no answer, tell the person in plain words that the run may already have started and that you cannot confirm it yet. When they ask again later, call `startWorkflowRun` with the same `prepareId` first: it answers the run if one exists, even after `expiresAt`. If no run exists and the prepare is still valid, that same call starts it, so make sure they still want it before you call. Do not prepare again for a retry: a new prepare followed by a start opens a new run. Prepare again only when the person wants another run on purpose, and after a start whose outcome is unknown, only once they know the first one may exist.
 
 ### When start is refused
+
+This table is for a refusal that answers a first start, a prepare or a cancel. A refusal that answers a retry after a start that did not answer is handled above, not here.
 
 | Refusal                                                               | What to do                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -50,7 +52,12 @@ If `prepareWorkflowRun` itself is refused, handle the refusal as this table says
 
 ## Cancel a run
 
-Call `cancelWorkflowRun` with `{ workflowProduct, runId }`. A run can be cancelled only before any step that sends something outside the firm or moves money has begun; after that the answer is `cancel_not_allowed`. The same answer comes for a run that has already finished (`completed`, `failed` or `denied`). So check the run with `getWorkflowRun`, then tell the person it is too late to cancel: what was actually sent or paid stays, and undoing it is a separate business action they start themselves, such as voiding the invoice or undoing the reconciliation match. Nothing rolls back on its own. Cancelling a run that is already cancelled answers the same result again.
+Call `cancelWorkflowRun` with `{ workflowProduct, runId }`. Then act on what it answers:
+
+- **The run, with status `cancelled`.** Tell the person the run is cancelled. Cancelling a run that is already cancelled answers the same result again.
+- **`cancel_not_allowed`.** A run can be cancelled only before any step that sends something outside the firm or moves money has begun; after that the answer is `cancel_not_allowed`. The same answer comes for a run that has already finished (`completed`, `failed` or `denied`). So check the run with `getWorkflowRun`, then tell the person it is too late to cancel: what was actually sent or paid stays, and undoing it is a separate business action they start themselves, such as voiding the invoice or undoing the reconciliation match. Nothing rolls back on its own.
+- **No answer** (a timeout, a dropped connection, a server error). Call `cancelWorkflowRun` again with the same `runId`: cancelling twice answers the same. If it still does not answer, check the run with `getWorkflowRun` and tell the person its state.
+- **Another refusal.** Handle it as the table above says.
 
 ## Why you still ask when the server checks
 
