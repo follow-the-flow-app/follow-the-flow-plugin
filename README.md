@@ -19,15 +19,15 @@ This repository is the plugin and its marketplace, part of Follow The Flow's Age
 
 ## Tools
 
-| Tool                   | What it answers                                                                                                           |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `getUserInfo`          | Your organization and the user this agent acts for                                                                        |
-| `listWorkflowProducts` | The workflow products you can use now. For discovery only: every operation is still authorized by the server              |
-| `getWorkflowProduct`   | What one workflow product does and what it needs to run                                                                   |
-| `prepareWorkflowRun`   | Prepares a run from the given input: a `prepareId`, a preview, whether a person must confirm it, and when it expires      |
-| `startWorkflowRun`     | Starts the run a prepare prepared. The same `prepareId` always answers the same run                                       |
-| `getWorkflowRun`       | The state and result of one run                                                                                           |
-| `cancelWorkflowRun`    | Cancels a run before anything is sent outside the firm or any money moves; a run already cancelled answers the same again |
+| Tool                   | What it answers                                                                                                                                                                                       |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `getUserInfo`          | Your organization and the user this agent acts for                                                                                                                                                    |
+| `listWorkflowProducts` | The workflow products you can use now, each with an `id` (a UUID) and a `code` such as `wp03`; the other tools take the `code`. For discovery only: every operation is still authorized by the server |
+| `getWorkflowProduct`   | What one workflow product does and what it needs to run, by its `code`                                                                                                                                |
+| `prepareWorkflowRun`   | Prepares a run from the given input: a `prepareId`, a preview, whether a person must confirm it, and when it expires                                                                                  |
+| `startWorkflowRun`     | Starts the run a prepare prepared. The same `prepareId` always answers the same run                                                                                                                   |
+| `getWorkflowRun`       | The state and result of one run                                                                                                                                                                       |
+| `cancelWorkflowRun`    | Cancels a run before anything is sent outside the firm or any money moves; a run already cancelled answers the same again                                                                             |
 
 `getUserInfo`, `listWorkflowProducts`, `getWorkflowProduct` and `getWorkflowRun` only read. `prepareWorkflowRun`, `startWorkflowRun` and `cancelWorkflowRun` do not.
 
