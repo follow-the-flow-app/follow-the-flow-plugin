@@ -1,6 +1,6 @@
 ---
 name: run-workflow-products
-description: "Run a Follow The Flow workflow product for the user: prepare the run, show the person the preview and get their consent when the product requires confirmation, and only then start it. Use when the user asks Follow The Flow to do work through a workflow product — for example to record follow-up tasks and reminders, issue or send bills, or write off receivables against payments — or asks to cancel a run. The workflow itself always runs on the Follow The Flow server; this skill decides only when to ask the person."
+description: "Run a Follow The Flow workflow product for the user: prepare the run, show the person the preview and get their consent when the product requires confirmation, and only then start it. Use when the user asks Follow The Flow to do work through a workflow product — for example to record follow-up tasks and reminders, issue or send bills, or write off receivables against payments — or asks to cancel a run, or to approve or return bills that wait for approval. The workflow itself always runs on the Follow The Flow server; this skill decides only when to ask the person."
 ---
 
 # Run workflow products
@@ -21,7 +21,7 @@ A situation may involve more than one WP. For example, "the engagement is done, 
 2. **Decide whether to ask.**
    - Only when `requiresConfirmation` is exactly `false` may you start without asking (for example WP-03, which only records internal tasks and reminders): skip steps 3 and 4 and go to step 5.
    - When it is `true`, missing, or anything else, you must ask first: do steps 3 and 4 before step 5. WP-04 (issuing and sending bills) and WP-05 (writing off receivables) are `true`: they send something outside the firm or move money.
-3. **Show the preview** (only when you must ask). Show the person the whole `preview` the prepare answered, not a summary that drops lines: for WP-04 the bills, recipients and amounts; for WP-05 the matches and differences. Say in one sentence what starting will do. Then ask whether to go ahead.
+3. **Show the preview** (only when you must ask). Show the person the whole `preview` the prepare answered, not a summary that drops lines: for WP-04 the bills, recipients and amounts; for WP-05 the matches and differences. Say in one sentence what starting will do. For WP-04 that is: the run drafts these bills and sends them for approval; nothing is issued or sent until an owner or an admin approves each bill (see "Approve or return WP-04 bills"). Then ask whether to go ahead.
 4. **Wait for a clear yes** (only when you must ask). Start only after the person answers yes to this preview. Silence, an unclear answer, or a yes given before they saw this preview is not consent. A yes covers this `prepareId` only.
 5. **Start.** Call `startWorkflowRun` with `{ workflowProduct, prepareId }`, the `prepareId` exactly as the prepare answered it. It answers the run; its `id` is the `runId` the other tools take, also exactly as answered.
 6. **Follow it.** Use `getWorkflowRun` and tell the person the run's state. A run can wait a long time, for an approval or a date: if it is waiting or still running after a few checks, tell them its state, what it waits for when the run says, and its `runId`, and that it goes on by itself. If `getWorkflowRun` fails, say the state is unknown and give the `runId`. When it ends `failed` or `denied`, say so plainly with whatever reason the run gives, and that the steps it finished before stopping are kept: something may already have been sent or recorded, so do not run it again before checking what it did.
@@ -49,6 +49,37 @@ This table is for a refusal that answers a first start or a prepare. A refusal t
 | `not_found`                                                           | The WP, the `prepareId` or the run does not exist for this person. Tell them.                                                                                                                                                                                                                                                                                                                                                    |
 
 If `prepareWorkflowRun` itself is refused, handle the refusal as this table says.
+
+## Approve or return WP-04 bills
+
+A WP-04 run, started by a person or by the schedule, drafts the bills and sends each one for approval, then waits (`getWorkflowRun` shows it `waiting`). Tell the person: the bill drafts were sent for approval, and they are issued and sent only after an owner or an admin approves them. Never approve or return a bill on your own: a yes to the run's preview is not a yes to its bills.
+
+When the person wants to approve or return bills:
+
+1. **List.** Call `listApprovalRequests` with `{ status: "pending" }`. Show every request it answers, one by one, with the bill's customer, amount and due date. When it answers a `nextCursor`, call it again with that `cursor` for the rest before you ask; if there are more than you can show, say how many and ask which to look at first.
+2. **Get a yes for each one.** Call `decideApprovalRequest` only for a request the person has explicitly approved or returned after seeing that bill. When they say "approve all" or the like, list all of them again with customer, amount and due date and ask once more whether every one of them is approved; only a yes to that list covers them, one call per request.
+3. **Returning needs a reason.** Ask the person why, and send their reason as `reason`. Do not return a bill without one, and do not make one up.
+4. **Decide.** Call `decideApprovalRequest` with `{ approvalRequestId, expectedVersion, decision, reason?, commandId }`: the request's `id` and `version` exactly as the list answered them, `decision` `approved` or `returned`, and a `commandId` you make as a new UUID the first time you send this decision. When the call does not answer (a timeout, a dropped connection, a server error, or 401 and you have signed in again), send the same decision again with the same `commandId`: the same `commandId` answers the same decision and never decides twice. Resend up to three times. On a resend, a refusal (such as `conflict`) does not prove the decision was not made: your first send may already have decided it, so treat it like no answer. If none of them answers, or signing in again fails, tell the person the decision may already have been made and you cannot confirm it yet; when they ask again, list the requests first (without a `status`) to see where that one stands before deciding anything. A different decision on the same request takes a new `commandId`.
+5. **Tell the person what happened**, by what the call answered:
+   - **The request, approved or returned.** Say so. When every request of the run has an answer, the run goes on by itself: approved bills are issued and sent, returned ones are not. Follow the run with `getWorkflowRun`.
+   - **`forbidden`.** Only an owner or an admin may approve or return bills. Tell the person that, and do not retry or look for another way.
+   - **`conflict`.** The request is no longer pending, or it changed since you listed it: someone else may have decided it. List again without a `status`, so the request shows whatever state it is in now; show what changed, and ask again if it is still pending.
+   - **`not_found`.** The request does not exist for this person. Tell them and list again.
+   - **`invalid_input`, `rule_violation`** (or another refusal with `details`). Say which field and why, as the `details` give them, fix it with the person, and decide again with a new `commandId`. A return without a reason answers `invalid_input` on `/reason`.
+
+A request that nobody decides within 7 days expires: the bill is returned with the reason that approval timed out, and the run finishes without it.
+
+Say a bill was delivered only when the run says so. For now no mail provider is connected for bills: the run's result records each sending as requested, so say the bill was issued and its sending requested, not that the customer received it.
+
+### Examples
+
+- The person: "Bill this month's installments." You prepare WP-04, show the bills, get a yes, start it; `getWorkflowRun` shows `waiting`. You say: "The bill drafts were sent for approval. They are issued and sent only after an owner or an admin approves them." You do not call `decideApprovalRequest`.
+- The person: "Approve the bills." You call `listApprovalRequests` with `{ status: "pending" }` and show each: customer, amount, due date. They answer "approve the first two". You call `decideApprovalRequest` twice, once for each of those two, each with its own new `commandId`, and leave the rest pending.
+- The person: "Approve all of them." You list all pending bills again with customer, amount and due date and ask: "Approve all three of these?" Only after their yes do you decide each one.
+- The person: "Return the one for Acme." You ask why. They say "the amount is wrong". You return it with `reason` "the amount is wrong". Without their reason you do not call.
+- The call answers `forbidden`. You say: "Only an owner or an admin of your firm can approve bills." You do not retry.
+- The call answers `conflict`. You say the bill may have been decided by someone else, list again without a `status`, and show what it says now.
+- The first call times out. You call again with the same `approvalRequestId`, `expectedVersion`, `decision` and the same `commandId`.
 
 ## Cancel a run
 
