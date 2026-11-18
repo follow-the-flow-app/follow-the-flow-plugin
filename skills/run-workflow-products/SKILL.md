@@ -9,7 +9,7 @@ Follow The Flow does its work through **workflow products** (WPs). Each WP is a 
 
 ## Find the workflow product
 
-1. Call `listWorkflowProducts` to see the WPs the person can use now. It is for discovery only; the server still authorizes every operation.
+1. Call `listWorkflowProducts` to see the WPs the person can use now. It is for discovery only; the server still authorizes every operation. Each WP has an `id` (a UUID) and a `code` such as `wp03`: every tool's `workflowProduct` takes the `code`, never the `id`.
 2. Call `getWorkflowProduct` for the one you mean, to learn what it does and what input it needs.
 3. Ask the person for any input you do not have. Do not invent values such as amounts, recipients, dates or customers.
 
@@ -23,7 +23,7 @@ A situation may involve more than one WP. For example, "the engagement is done, 
    - When it is `true`, missing, or anything else, you must ask first: do steps 3 and 4 before step 5. WP-04 (issuing and sending bills) and WP-05 (writing off receivables) are `true`: they send something outside the firm or move money.
 3. **Show the preview** (only when you must ask). Show the person the whole `preview` the prepare answered, not a summary that drops lines: for WP-04 the bills, recipients and amounts; for WP-05 the matches and differences. Say in one sentence what starting will do. Then ask whether to go ahead.
 4. **Wait for a clear yes** (only when you must ask). Start only after the person answers yes to this preview. Silence, an unclear answer, or a yes given before they saw this preview is not consent. A yes covers this `prepareId` only.
-5. **Start.** Call `startWorkflowRun` with `{ workflowProduct, prepareId }`. It answers the run.
+5. **Start.** Call `startWorkflowRun` with `{ workflowProduct, prepareId }`, the `prepareId` exactly as the prepare answered it. It answers the run; its `id` is the `runId` the other tools take, also exactly as answered.
 6. **Follow it.** Use `getWorkflowRun` and tell the person the run's state. A run can wait a long time, for an approval or a date: if it is waiting or still running after a few checks, tell them its state, what it waits for when the run says, and its `runId`, and that it goes on by itself. If `getWorkflowRun` fails, say the state is unknown and give the `runId`. When it ends `failed` or `denied`, say so plainly with whatever reason the run gives, and that the steps it finished before stopping are kept: something may already have been sent or recorded, so do not run it again before checking what it did.
 
 If the person changes the input after seeing the preview, prepare again and show the new preview.
