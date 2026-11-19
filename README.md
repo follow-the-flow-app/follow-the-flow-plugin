@@ -28,7 +28,7 @@ This repository is the plugin and its marketplace, part of Follow The Flow's Age
 | `startWorkflowRun`     | Starts the run a prepare prepared. The same `prepareId` always answers the same run                                                                                                                   |
 | `getWorkflowRun`       | The state and result of one run                                                                                                                                                                       |
 | `cancelWorkflowRun`    | Cancels a run before anything is sent outside the firm or any money moves; a run already cancelled answers the same again                                                                             |
-| `listApprovalRequests` | Your firm's approval requests: WP-04 bill drafts waiting for an owner or an admin, optionally by status                                                                                              |
+| `listApprovalRequests` | Your firm's approval requests (WP-04 bill drafts an owner or an admin approves or returns), optionally only those with one status, such as pending                                                                                              |
 | `decideApprovalRequest` | Approves or returns one approval request. The same `commandId` (a UUID the agent makes on its first send) always answers the same decision                                                          |
 
 `getUserInfo`, `listWorkflowProducts`, `getWorkflowProduct`, `getWorkflowRun` and `listApprovalRequests` only read. `prepareWorkflowRun`, `startWorkflowRun`, `cancelWorkflowRun` and `decideApprovalRequest` do not.
