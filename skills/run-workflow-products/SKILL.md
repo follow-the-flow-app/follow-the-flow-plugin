@@ -52,16 +52,18 @@ If `prepareWorkflowRun` itself is refused, handle the refusal as this table says
 
 ## When the connection lacks a permission
 
-When the person connects Follow The Flow, its consent page always grants reading (`workflow:read`: `listWorkflowProducts`, `getWorkflowProduct`, `getWorkflowRun`) and lets them clear two boxes:
+When the person connects Follow The Flow, its consent page always grants reading (`workflow:read`: `listWorkflowProducts`, `getWorkflowProduct`, `getWorkflowRun`) and shows a box, ticked, for each other permission your client asked for, which they can clear:
 
-| Box on the consent page                    | Permission        | What it allows                      |
-| ------------------------------------------ | ----------------- | ----------------------------------- |
-| 「準備、啟動與取消工作流程 Run」           | `workflow:write`  | prepare, start and cancel runs      |
-| 「核准或退回核准單（例如開立並寄出帳單）」 | `approval:decide` | approve or return approval requests |
+| Box on the consent page                    | Permission        | What it allows                      | Tools that need it                                            |
+| ------------------------------------------ | ----------------- | ----------------------------------- | ------------------------------------------------------------- |
+| 「準備、啟動與取消工作流程 Run」           | `workflow:write`  | prepare, start and cancel runs      | `prepareWorkflowRun`, `startWorkflowRun`, `cancelWorkflowRun` |
+| 「核准或退回核准單（例如開立並寄出帳單）」 | `approval:decide` | approve or return approval requests | the tool that approves or returns an approval request         |
 
-A call the connection was not granted is refused before Follow The Flow looks at it, so that call did nothing: HTTP 403 with an `insufficient_scope` challenge whose `error_description` names the permission it needs, for example `workflow:write is required`. (Its `scope` lists every permission, not only the missing one.)
+A connection made by entering a code on another device (device sign-in) has no boxes: it gets every permission the client asked for.
 
-- Tell the person that this connection was set up without permission to do that, so nothing was done. If they want it done, they reconnect Follow The Flow and keep that box ticked. Do not look for another way to do it, and do not say Follow The Flow refused them: the connection did.
+A call the connection was not granted is refused before Follow The Flow looks at it, so that call did nothing: HTTP 403 with an `insufficient_scope` challenge whose `error_description` names the permission it needs, for example `workflow:write is required`. (Its `scope` lists every permission, not only the missing one.) If all you see is that the scope was insufficient, the tool you called tells you which permission it was: see the table.
+
+- Tell the person that this connection was set up without permission to do that, so nothing was done. If they want it done, they reconnect Follow The Flow and keep that box ticked. If the box was not on the page, or they signed in on another device, the client did not ask for that permission: reconnecting the same way will not add it, so tell them that instead. If your client offers to sign in again with more permissions, that sign-in does ask for it. Do not look for another way to do it, and do not say Follow The Flow refused them: the connection did.
 - Your client may offer to sign in again with more permissions. Whether to reconnect is the person's choice: tell them what the box allows and let them decide.
 - After they reconnect, a run starts over: prepare again, show the preview and get their yes again. A yes given before reconnecting does not carry over. An approval they asked for, ask them again before you send it.
 - On a retry after a start or cancel that did not answer, this 403 says only that the retry did nothing; the first call may still have gone through. Tell the person that, as "When start does not answer" and "Cancel a run" say, and check with `getWorkflowRun` once they have reconnected.
