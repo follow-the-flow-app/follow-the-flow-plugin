@@ -68,11 +68,12 @@ A call the connection was not granted is refused before Follow The Flow looks at
 - Your client may offer to sign in again with more permissions. Whether to reconnect is the person's choice: tell them what the box allows and let them decide.
 - After they reconnect, a run that was refused at prepare or at a first start starts over: prepare again, show the preview and get their yes again. A yes given before reconnecting does not carry over. An approval they asked for, ask them again before you send it.
 - On a retry after a start or cancel that did not answer, this 403 says only that the retry did nothing; the first call may still have gone through, so the "starts over" bullet above does not apply. Tell the person that. Once they have reconnected, a start goes on as "When start does not answer" says: call `startWorkflowRun` again with the same `prepareId`, which answers the run if one exists, and do not prepare again. A cancel goes on as "Cancel a run" says, with the same `runId`.
-- Any other refusal or a 401 is not this: handle it as the sections above say. A `forbidden` refusal is Follow The Flow refusing the person, and reconnecting does not change it.
+- Any other refusal or a 401 is not this: handle it as the other sections say ("Cancel a run" for a cancel). A `forbidden` refusal is Follow The Flow refusing the person, and reconnecting does not change it.
 
 Examples:
 
-- `prepareWorkflowRun` answers 403 `insufficient_scope`. You say: "This Follow The Flow connection was set up without permission to prepare and start runs, so nothing was prepared. To do it, reconnect Follow The Flow and keep 「準備、啟動與取消工作流程 Run」 ticked." You do not retry.
+- `prepareWorkflowRun` answers 403 `insufficient_scope`. You call `listWorkflowProducts`, and it answers. You say: "This Follow The Flow connection was set up without permission to prepare and start runs, so nothing was prepared. To do it, reconnect Follow The Flow and keep 「準備、啟動與取消工作流程 Run」 ticked." You do not retry.
+- `prepareWorkflowRun` answers 403 `insufficient_scope`, and `listWorkflowProducts` does too. You say: "This Follow The Flow connection was made before its current permissions existed, so it cannot do anything yet. Reconnect Follow The Flow once, any way you like, and it will work." You do not retry.
 - After reconnecting, the person asks again. You prepare again, show the new preview and ask for their yes.
 
 ## Cancel a run
