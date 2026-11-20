@@ -50,6 +50,29 @@ This table is for a refusal that answers a first start or a prepare. A refusal t
 
 If `prepareWorkflowRun` itself is refused, handle the refusal as this table says.
 
+## When the connection lacks a permission
+
+When the person connects Follow The Flow, its consent page always grants reading (`workflow:read`: `listWorkflowProducts`, `getWorkflowProduct`, `getWorkflowRun`) and lets them clear two boxes:
+
+| Box on the consent page                    | Permission        | What it allows                      |
+| ------------------------------------------ | ----------------- | ----------------------------------- |
+| 「準備、啟動與取消工作流程 Run」           | `workflow:write`  | prepare, start and cancel runs      |
+| 「核准或退回核准單（例如開立並寄出帳單）」 | `approval:decide` | approve or return approval requests |
+
+A call the connection was not granted is refused before Follow The Flow looks at it, so that call did nothing: HTTP 403 with an `insufficient_scope` challenge whose `error_description` names the permission it needs, for example `workflow:write is required`. (Its `scope` lists every permission, not only the missing one.)
+
+- Tell the person that this connection was set up without permission to do that, so nothing was done. If they want it done, they reconnect Follow The Flow and keep that box ticked. Do not look for another way to do it, and do not say Follow The Flow refused them: the connection did.
+- Your client may offer to sign in again with more permissions. Whether to reconnect is the person's choice: tell them what the box allows and let them decide.
+- After they reconnect, a run starts over: prepare again, show the preview and get their yes again. A yes given before reconnecting does not carry over. An approval they asked for, ask them again before you send it.
+- On a retry after a start or cancel that did not answer, this 403 says only that the retry did nothing; the first call may still have gone through. Tell the person that, as "When start does not answer" and "Cancel a run" say, and check with `getWorkflowRun` once they have reconnected.
+- A connection made before these permissions existed has to reconnect once: until then every tool but `getUserInfo` is refused this way.
+- Any other refusal or a 401 is not this: handle it as the sections above say. A `forbidden` refusal is Follow The Flow refusing the person, and reconnecting does not change it.
+
+Examples:
+
+- `prepareWorkflowRun` answers 403 `insufficient_scope`. You say: "This Follow The Flow connection was set up without permission to prepare and start runs, so nothing was prepared. To do it, reconnect Follow The Flow and keep 「準備、啟動與取消工作流程 Run」 ticked." You do not retry.
+- After reconnecting, the person asks again. You prepare again, show the new preview and ask for their yes.
+
 ## Cancel a run
 
 Call `cancelWorkflowRun` with `{ workflowProduct, runId }`. Then act on what it answers:
