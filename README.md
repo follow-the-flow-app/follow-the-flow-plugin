@@ -28,16 +28,17 @@ This repository is the plugin and its marketplace, part of Follow The Flow's Age
 | `startWorkflowRun`     | Starts the run a prepare prepared. The same `prepareId` always answers the same run                                                                                                                   |
 | `getWorkflowRun`       | The state and result of one run                                                                                                                                                                       |
 | `cancelWorkflowRun`    | Cancels a run before anything is sent outside the firm or any money moves; a run already cancelled answers the same again                                                                             |
-| `listApprovalRequests` | Your firm's approval requests (WP-04 bill drafts an owner or an admin approves or returns), optionally only those with one status, such as pending                                                                                              |
+| `listApprovalRequests` | Your firm's approval requests (WP-04 bill drafts, and WP-05 payment differences, that an owner or an admin approves or returns), optionally only those with one status, such as pending                                                       |
 | `decideApprovalRequest` | Approves or returns one approval request. The same `commandId` (a UUID the agent makes on its first send) always answers the same decision                                                          |
+| `listBankStatements`   | The bank statements a person uploaded on the web app, for WP-05. There is no tool to upload one                                                                                                      |
 
-`getUserInfo`, `listWorkflowProducts`, `getWorkflowProduct`, `getWorkflowRun` and `listApprovalRequests` only read. `prepareWorkflowRun`, `startWorkflowRun`, `cancelWorkflowRun` and `decideApprovalRequest` do not.
+`getUserInfo`, `listWorkflowProducts`, `getWorkflowProduct`, `getWorkflowRun`, `listApprovalRequests` and `listBankStatements` only read. `prepareWorkflowRun`, `startWorkflowRun`, `cancelWorkflowRun` and `decideApprovalRequest` do not.
 
 ## Skills
 
 | Skill                   | What it does                                                                                                                                                                                                                    |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `run-workflow-products` | Prepares a run, shows you the preview and waits for your yes before starting any workflow product that requires confirmation (issuing and sending bills, writing off receivables), and prepares again when a preview goes stale. Shows you each WP-04 bill waiting for approval and approves or returns only the ones you say yes to |
+| `run-workflow-products` | Prepares a run, shows you the preview and waits for your yes before starting any workflow product that requires confirmation (issuing and sending bills, writing off receivables), and prepares again when a preview goes stale. Shows you each WP-04 bill and each WP-05 payment difference waiting for approval and approves or returns only the ones you say yes to; for WP-05 it finds a statement you uploaded and shows you its matches and differences before it starts |
 
 Asking you first is the plugin's behaviour, not a security check: the server authorizes every start again and refuses a preview that has expired or whose data changed, whether or not the agent asked.
 
