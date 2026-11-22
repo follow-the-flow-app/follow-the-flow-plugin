@@ -41,6 +41,8 @@ This repository is the plugin and its marketplace, part of Follow The Flow's Age
 
 Asking you first is the plugin's behaviour, not a security check: the server authorizes every start again and refuses a preview that has expired or whose data changed, whether or not the agent asked.
 
+When you connect, Follow The Flow's consent page always grants reading and shows a box, ticked, for each other permission your client asks for, which you can clear: preparing, starting and cancelling runs, and approving or returning approval requests. Signing in with a code on another device grants every permission the client asks for. A connection without a box is refused that kind of call (HTTP 403 `insufficient_scope`), and the skill tells you to reconnect with the box kept ticked. A connection made before these permissions existed has to reconnect once.
+
 ## Packaging
 
 | Format                                                 | Manifest                                                                            |
