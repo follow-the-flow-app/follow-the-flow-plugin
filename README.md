@@ -28,14 +28,16 @@ This repository is the plugin and its marketplace, part of Follow The Flow's Age
 | `startWorkflowRun`     | Starts the run a prepare prepared. The same `prepareId` always answers the same run                                                                                                                   |
 | `getWorkflowRun`       | The state and result of one run                                                                                                                                                                       |
 | `cancelWorkflowRun`    | Cancels a run before anything is sent outside the firm or any money moves; a run already cancelled answers the same again                                                                             |
+| `listApprovalRequests` | Your firm's approval requests (WP-04 bill drafts an owner or an admin approves or returns), optionally only those with one status, such as pending                                                                                              |
+| `decideApprovalRequest` | Approves or returns one approval request. The same `commandId` (a UUID the agent makes on its first send) always answers the same decision                                                          |
 
-`getUserInfo`, `listWorkflowProducts`, `getWorkflowProduct` and `getWorkflowRun` only read. `prepareWorkflowRun`, `startWorkflowRun` and `cancelWorkflowRun` do not.
+`getUserInfo`, `listWorkflowProducts`, `getWorkflowProduct`, `getWorkflowRun` and `listApprovalRequests` only read. `prepareWorkflowRun`, `startWorkflowRun`, `cancelWorkflowRun` and `decideApprovalRequest` do not.
 
 ## Skills
 
 | Skill                   | What it does                                                                                                                                                                                                                    |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `run-workflow-products` | Prepares a run, shows you the preview and waits for your yes before starting any workflow product that requires confirmation (issuing and sending bills, writing off receivables), and prepares again when a preview goes stale |
+| `run-workflow-products` | Prepares a run, shows you the preview and waits for your yes before starting any workflow product that requires confirmation (issuing and sending bills, writing off receivables), and prepares again when a preview goes stale. Shows you each WP-04 bill waiting for approval and approves or returns only the ones you say yes to |
 
 Asking you first is the plugin's behaviour, not a security check: the server authorizes every start again and refuses a preview that has expired or whose data changed, whether or not the agent asked.
 
